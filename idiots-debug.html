@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Idiots DB Debug</title>
+<style>
+  body{font-family:system-ui;background:#111;color:#eee;padding:20px;font-size:14px;}
+  .ok{color:#3ecf6e;} .err{color:#f06060;} .warn{color:#f5a623;}
+  pre{background:#222;padding:12px;border-radius:6px;overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:break-all;}
+  button{background:#e8c547;color:#111;border:none;border-radius:6px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;margin:6px 4px;}
+  h2{color:#e8c547;margin:16px 0 8px;}
+  .step{background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:10px;}
+  .step-title{font-weight:700;margin-bottom:6px;}
+</style>
+</head>
+<body>
+<h2>🔧 Idiots Betting — Database Diagnostics</h2>
+<p style="color:#888;margin-bottom:16px">This page tests your connection step by step. Tap each button in order.</p>
+
+<div class="step">
+  <div class="step-title">1. Basic internet check</div>
+  <button onclick="testInternet()">Test internet</button>
+  <pre id="r1">—</pre>
+</div>
+
+<div class="step">
+  <div class="step-title">2. Supabase reachable (no auth)</div>
+  <button onclick="testPing()">Ping Supabase</button>
+  <pre id="r2">—</pre>
+</div>
+
+<div class="step">
+  <div class="step-title">3. REST API with API key</div>
+  <button onclick="testREST()">Test REST API</button>
+  <pre id="r3">—</pre>
+</div>
+
+<div class="step">
+  <div class="step-title">4. Read bets table</div>
+  <button onclick="testBets()">Read bets</button>
+  <pre id="r4">—</pre>
+</div>
+
+<div class="step">
+  <div class="step-title">5. Read payments table</div>
+  <button onclick="testPayments()">Read payments</button>
+  <pre id="r5">—</pre>
+</div>
+
+<div class="step">
+  <div class="step-title">6. Full diagnostic info</div>
+  <button onclick="testAll()">Run all tests</button>
+  <pre id="r6">—</pre>
+</div>
+
+<script>
+const URL = 'https://iaxdnwtevkadkyhxiybf.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheGRud3RldmthZGt5aHhpeWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjUwMzksImV4cCI6MjA5NjAwMTAzOX0._QjzaPh23QrmBBcHLggs-ve4C09QKVpMzisq5TK7eeU';
+const H = {'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+
+function show(id, html){ document.getElementById(id).innerHTML = html; }
+function ts(){ return new Date().toISOString(); }
+
+async function timed(fn){
+  const t = Date.now();
+  try{
+    const r = await fn();
+    return { ok:true, ms:Date.now()-t, data:r };
+  }catch(e){
+    return { ok:false, ms:Date.now()-t, err:e.message, name:e.name };
+  }
+}
+
+async function testInternet(){
+  show('r1','Testing…');
+  const r = await timed(()=>fetch('https://www.google.com/generate_204',{mode:'no-cors'}));
+  show('r1', r.ok
+    ? `<span class="ok">✓ Internet working (${r.ms}ms)</span>`
+    : `<span class="err">✗ No internet: ${r.err}</span>`);
+}
+
+async function testPing(){
+  show('r2','Testing…');
+  const r = await timed(()=>fetch(URL,{mode:'no-cors'}));
+  show('r2', r.ok
+    ? `<span class="ok">✓ Supabase host reachable (${r.ms}ms)</span>`
+    : `<span class="err">✗ Cannot reach Supabase host: ${r.err}</span>`);
+}
+
+async function testREST(){
+  show('r3','Testing…');
+  const r = await timed(async ()=>{
+    const res = await fetch(URL+'/rest/v1/', {headers:H});
+    const txt = await res.text();
+    return {status:res.status, headers:Object.fromEntries(res.headers), body:txt.substring(0,200)};
+  });
+  if(r.ok){
+    show('r3', `<span class="${r.data.status<400?'ok':'err'}">${r.data.status<400?'✓':'✗'} HTTP ${r.data.status} (${r.ms}ms)</span>\n${JSON.stringify(r.data.body).substring(0,300)}`);
+  } else {
+    show('r3',`<span class="err">✗ Fetch error: ${r.err} (${r.name})</span>`);
+  }
+}
+
+async function testBets(){
+  show('r4','Testing…');
+  const r = await timed(async ()=>{
+    const res = await fetch(URL+'/rest/v1/bets?select=id&limit=3&order=id.desc', {headers:H});
+    const txt = await res.text();
+    return {status:res.status, body:txt.substring(0,500)};
+  });
+  if(r.ok){
+    const ok = r.data.status < 400;
+    show('r4',`<span class="${ok?'ok':'err'}">${ok?'✓':'✗'} HTTP ${r.data.status} (${r.ms}ms)</span>\n${r.data.body}`);
+  } else {
+    show('r4',`<span class="err">✗ ${r.err} (${r.name})</span>`);
+  }
+}
+
+async function testPayments(){
+  show('r5','Testing…');
+  const r = await timed(async ()=>{
+    const res = await fetch(URL+'/rest/v1/payments?select=id&limit=3', {headers:H});
+    const txt = await res.text();
+    return {status:res.status, body:txt.substring(0,500)};
+  });
+  if(r.ok){
+    const ok = r.data.status < 400;
+    show('r5',`<span class="${ok?'ok':'err'}">${ok?'✓':'✗'} HTTP ${r.data.status} (${r.ms}ms)</span>\n${r.data.body}`);
+  } else {
+    show('r5',`<span class="err">✗ ${r.err} (${r.name})</span>`);
+  }
+}
+
+async function testAll(){
+  show('r6','Running all tests…\n');
+  const info = {
+    timestamp: ts(),
+    userAgent: navigator.userAgent,
+    online: navigator.onLine,
+    connection: navigator.connection ? {
+      type: navigator.connection.effectiveType,
+      downlink: navigator.connection.downlink,
+      rtt: navigator.connection.rtt
+    } : 'API not available'
+  };
+
+  const tests = [
+    {name:'Google (no-cors)', fn:()=>fetch('https://www.google.com/generate_204',{mode:'no-cors'})},
+    {name:'Supabase host (no-cors)', fn:()=>fetch(URL,{mode:'no-cors'})},
+    {name:'Supabase REST root', fn:async()=>{const r=await fetch(URL+'/rest/v1/',{headers:H});return `HTTP ${r.status}`;}},
+    {name:'Bets table read', fn:async()=>{const r=await fetch(URL+'/rest/v1/bets?select=id&limit=1',{headers:H});const j=await r.json();return `HTTP ${r.status} → ${JSON.stringify(j).substring(0,100)}`;}},
+    {name:'Payments table read', fn:async()=>{const r=await fetch(URL+'/rest/v1/payments?select=id&limit=1',{headers:H});const j=await r.json();return `HTTP ${r.status} → ${JSON.stringify(j).substring(0,100)}`;}},
+  ];
+
+  let out = `Device info:\n${JSON.stringify(info,null,2)}\n\nTest results:\n`;
+  for(const t of tests){
+    const r = await timed(t.fn);
+    out += r.ok
+      ? `✓ ${t.name}: ${r.ms}ms${r.data?' → '+String(r.data).substring(0,100):''}\n`
+      : `✗ ${t.name}: ${r.err} (${r.name}) ${r.ms}ms\n`;
+  }
+  show('r6', out);
+}
+</script>
+</body>
+</html>
