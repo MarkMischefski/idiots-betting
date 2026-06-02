@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>The Idiots — 2026/27</title>
+<style>
+:root {
+  --bg:#0e0e10; --surface:#18181b; --surface2:#222226;
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.16);
+  --text:#f0f0f0; --muted:#888;
+  --accent:#e8c547; --accent-dim:rgba(232,197,71,0.12);
+  --green:#3ecf6e; --green-bg:rgba(62,207,110,0.1);
+  --red:#f06060; --red-bg:rgba(240,96,96,0.1);
+  --amber:#f5a623; --amber-bg:rgba(245,166,35,0.1);
+  --purple:#a78bfa; --purple-bg:rgba(167,139,250,0.1);
+  --r:10px; --r-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px;}
+
+/* ── HEADER ── */
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:0 14px;height:52px;position:sticky;top:0;z-index:200;}
+.logo{font-size:14px;font-weight:700;color:var(--accent);white-space:nowrap;flex-shrink:0;}
+.logo span{color:var(--muted);font-weight:400;}
+.hdr-actions{display:flex;gap:6px;margin-left:auto;flex-shrink:0;}
+.hdr-btn{border:none;border-radius:var(--r-sm);font-size:12px;font-weight:600;padding:6px 10px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.hdr-btn-export{background:var(--accent);color:#111;}
+.hdr-btn-import{background:var(--surface2);border:1px solid var(--border2);color:var(--muted);}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background 0.3s;}
+.sync-dot.live{background:var(--green);}
+.sync-dot.err{background:var(--red);}
+
+/* ── BOTTOM NAV (mobile) ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:200;padding:0 0 env(safe-area-inset-bottom);}
+.bnav-inner{display:flex;}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:none;border:none;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;transition:color 0.15s;}
+.bnav-btn .icon{font-size:18px;line-height:1;}
+.bnav-btn.active{color:var(--accent);}
+
+/* ── TOP NAV (desktop) ── */
+.top-nav{display:flex;gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.nav-btn{background:none;border:none;color:var(--muted);font-size:13px;font-weight:500;padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;white-space:nowrap;font-family:inherit;}
+.nav-btn.active{color:var(--accent);background:var(--accent-dim);}
+
+/* ── PAGES ── */
+.page{display:none;padding:14px;padding-bottom:80px;max-width:1140px;margin:0 auto;}
+.page.active{display:block;}
+@media(min-width:700px){
+  .bottom-nav{display:none!important;}
+  .top-nav{display:flex!important;}
+  .page{padding:20px;padding-bottom:20px;}
+}
+@media(max-width:699px){
+  .bottom-nav{display:block;}
+  .top-nav{display:none;}
+}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;}
+.card+.card{margin-top:12px;}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;}
+
+/* ── STATS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;}
+@media(min-width:500px){.stat-grid{grid-template-columns:repeat(4,1fr);}}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;}
+.stat-value{font-size:22px;font-weight:700;}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.pos{color:var(--green);}.neg{color:var(--red);}.neu{color:var(--muted);}
+
+/* ── FORM ── */
+.form-stack{display:flex;flex-direction:column;gap:12px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg.full{grid-column:1/-1;}
+.fg label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
+.fg input,.fg select,.fg textarea{
+  background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);
+  color:var(--text);font-size:16px;font-family:inherit;padding:11px 12px;width:100%;
+  -webkit-appearance:none;appearance:none;
+}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--accent);}
+.fg select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.fg input.warn{border-color:var(--amber)!important;}
+.fg input.err{border-color:var(--red)!important;}
+
+.budget-bar-wrap{height:5px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:5px;}
+.budget-bar-fill{height:100%;border-radius:3px;transition:width 0.3s,background 0.3s;}
+
+.payout-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.payout-box-item span{font-size:10px;color:var(--muted);display:block;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;}
+.payout-box-item strong{font-size:16px;font-weight:700;}
+
+.alert{border-radius:var(--r-sm);padding:10px 12px;font-size:13px;font-weight:500;}
+.alert-warn{background:var(--amber-bg);border:1px solid rgba(245,166,35,0.3);color:var(--amber);}
+.alert-err{background:var(--red-bg);border:1px solid rgba(240,96,96,0.3);color:var(--red);}
+.alert-info{background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.3);color:#60a5fa;}
+.alert-ok{background:var(--green-bg);border:1px solid rgba(62,207,110,0.3);color:var(--green);}
+
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:var(--r-sm);font-size:14px;font-weight:700;padding:12px 22px;cursor:pointer;font-family:inherit;transition:all 0.15s;width:100%;}
+.btn-accent{background:var(--accent);color:#111;}
+.btn-accent:active{background:#f5d55e;}
+.btn-danger-sm{background:var(--red-bg);border:1px solid rgba(240,96,96,0.3);color:var(--red);padding:6px 10px;font-size:12px;font-weight:600;border-radius:var(--r-sm);cursor:pointer;font-family:inherit;white-space:nowrap;}
+
+/* ── BADGES ── */
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;}
+.b-win{background:var(--green-bg);color:var(--green);}
+.b-loss{background:var(--red-bg);color:var(--red);}
+.b-pending{background:rgba(255,255,255,0.06);color:var(--muted);}
+.b-nobet{background:var(--purple-bg);color:var(--purple);}
+.b-fine{background:var(--amber-bg);color:var(--amber);}
+.joker-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;background:rgba(232,197,71,0.2);color:var(--accent);margin-left:3px;}
+.team-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;}
+.t-nio{background:rgba(100,150,255,0.12);color:#8aabff;}
+.t-ffs{background:rgba(255,120,100,0.12);color:#ff9080;}
+
+/* ── FILTER CHIPS ── */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+.chip{background:none;border:1px solid var(--border2);border-radius:99px;color:var(--muted);font-size:12px;font-weight:600;padding:5px 12px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;}
+.chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+
+/* ── BET CARDS (mobile list) ── */
+.bet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px;}
+.bet-card-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.bet-card-name{font-weight:700;font-size:14px;}
+.bet-card-desc{font-size:13px;color:var(--muted);margin-bottom:6px;line-height:1.4;}
+.bet-card-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted);}
+.bet-card-pl{font-size:15px;font-weight:700;margin-left:auto;}
+
+/* ── TABLE (desktop) ── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surface2);}
+
+/* inline result select */
+.res-sel{font-size:11px;padding:4px 6px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text);font-family:inherit;}
+
+/* ── LEADERBOARD ── */
+.lb-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+.lb-row:last-child{border-bottom:none;}
+.lb-rank{font-size:18px;width:30px;text-align:center;flex-shrink:0;}
+.lb-name{flex:1;font-size:14px;font-weight:700;}
+.lb-meta{font-size:11px;color:var(--muted);}
+.lb-bar-wrap{width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;flex-shrink:0;}
+.lb-bar{height:100%;border-radius:2px;}
+.lb-pl{font-size:15px;font-weight:700;min-width:80px;text-align:right;}
+
+/* ── FINE RULES ── */
+.fine-rules{background:var(--amber-bg);border:1px solid rgba(245,166,35,0.25);border-radius:var(--r);padding:14px;margin-bottom:14px;}
+.fine-rules h3{font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;}
+.rule{font-size:13px;padding:3px 0 3px 16px;position:relative;}
+.rule::before{content:'→';position:absolute;left:0;color:var(--amber);font-size:11px;top:4px;}
+
+/* ── WEEKLY GRID ── */
+.wk-section{margin-bottom:20px;}
+.wk-title{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:10px;}
+
+/* ── Q TABS ── */
+.qtabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap;}
+.qtab{background:none;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--muted);font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;font-family:inherit;}
+.qtab.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:999;align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+@media(min-width:500px){.modal-bg{align-items:center;}}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r) var(--r) 0 0;padding:20px;width:100%;max-width:400px;}
+@media(min-width:500px){.modal{border-radius:var(--r);}}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:6px;}
+.modal p{font-size:13px;color:var(--muted);margin-bottom:18px;}
+.modal-btns{display:flex;gap:10px;}
+.modal-btns .btn{padding:11px;}
+
+/* ── TOAST ── */
+#toast{display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:12px 18px;font-size:13px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,0.5);white-space:nowrap;}
+@media(min-width:700px){#toast{bottom:24px;}}
+
+/* ── LOADING ── */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px;}
+#loading .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+.msg-ok{color:var(--green);font-size:13px;font-weight:600;}
+.msg-err{color:var(--red);font-size:13px;font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div style="color:var(--muted);font-size:13px">Connecting to database…</div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal">
+    <h3>Delete this entry?</h3>
+    <p id="confirm-msg">This cannot be undone.</p>
+    <div class="modal-btns">
+      <button class="btn" style="background:var(--surface2);border:1px solid var(--border2);color:var(--muted)" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger-sm" style="flex:1;padding:11px" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo">🏆 The Idiots <span>26/27</span></div>
+  <nav class="top-nav" id="top-nav">
+    <button class="nav-btn active" onclick="goto('add')">Add Bet</button>
+    <button class="nav-btn" onclick="goto('bets')">All Bets</button>
+    <button class="nav-btn" onclick="goto('weekly')">Weekly</button>
+    <button class="nav-btn" onclick="goto('board')">Leaderboard</button>
+    <button class="nav-btn" onclick="goto('fines')">Fines</button>
+  </nav>
+  <div class="hdr-actions">
+    <div class="sync-dot" id="sync-dot" title="Sync status"></div>
+    <button class="hdr-btn hdr-btn-import" onclick="document.getElementById('import-input').click()">⬆</button>
+    <input type="file" id="import-input" accept=".xlsx" style="display:none" onchange="importBackup(event)">
+    <button class="hdr-btn hdr-btn-export" onclick="exportBackup()">⬇ Backup</button>
+  </div>
+</header>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="bnav-inner">
+    <button class="bnav-btn active" onclick="goto('add')" id="bnav-add"><div class="icon">➕</div>Add</button>
+    <button class="bnav-btn" onclick="goto('bets')" id="bnav-bets"><div class="icon">📋</div>Bets</button>
+    <button class="bnav-btn" onclick="goto('weekly')" id="bnav-weekly"><div class="icon">📅</div>Weekly</button>
+    <button class="bnav-btn" onclick="goto('board')" id="bnav-board"><div class="icon">🏆</div>Board</button>
+    <button class="bnav-btn" onclick="goto('fines')" id="bnav-fines"><div class="icon">💸</div>Fines</button>
+  </div>
+</nav>
+
+<!-- ═══════════ ADD BET ═══════════ -->
+<div id="page-add" class="page active">
+  <div class="card">
+    <div class="card-title">New entry</div>
+    <div id="budget-alert" style="margin-bottom:10px"></div>
+    <div class="form-stack">
+      <div class="form-row">
+        <div class="fg">
+          <label>Idiot</label>
+          <select id="f-idiot" onchange="onFormChange()">
+            <option value="">Select…</option>
+            <option>Brent</option><option>Ghoms</option><option>Jason</option>
+            <option>Porpoise</option><option>Rob</option><option>Scootsie</option>
+            <option>Shahid</option><option>Wild Boar</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Week ending (Wed)</label>
+          <select id="f-week" onchange="onFormChange()">
+            <option value="">Select week…</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg">
+          <label>Quarter</label>
+          <select id="f-quarter">
+            <option value="Q1">Quarter 1</option><option value="Q2">Quarter 2</option>
+            <option value="Q3">Quarter 3</option><option value="Q4">Quarter 4</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Entry type</label>
+          <select id="f-type" onchange="onTypeChange()">
+            <option value="bet">Bet placed</option>
+            <option value="nobet">No bet placed</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- BET FIELDS -->
+      <div id="bet-fields" class="form-stack">
+        <div class="fg full">
+          <label>Bet description</label>
+          <input type="text" id="f-bet" placeholder="e.g. Warriors to win by 10+">
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label>Team</label>
+            <select id="f-team"><option value="NIO">NIO</option><option value="FFS">FFS</option></select>
+          </div>
+          <div class="fg">
+            <label>Result</label>
+            <select id="f-result" onchange="calcPayout()">
+              <option value="Pending">Pending</option>
+              <option value="Win">Win</option>
+              <option value="Loss">Loss</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label>Wager ($) <span id="budget-label" style="font-weight:400;text-transform:none;font-size:10px;color:var(--muted)"></span></label>
+            <input type="number" id="f-wager" placeholder="30" min="1" step="0.01" inputmode="decimal" oninput="calcPayout()">
+            <div class="budget-bar-wrap"><div class="budget-bar-fill" id="budget-bar" style="width:0%;background:var(--green)"></div></div>
+          </div>
+          <div class="fg">
+            <label>Odds</label>
+            <input type="number" id="f-odds" placeholder="3.50" min="1.01" step="0.01" inputmode="decimal" oninput="calcPayout()">
+          </div>
+        </div>
+        <div class="fg">
+          <label>Joker week ($60 limit)? <span id="joker-status" style="font-weight:400;text-transform:none;font-size:10px;color:var(--muted)"></span></label>
+          <select id="f-joker" onchange="calcPayout()">
+            <option value="no">No — normal ($30 limit)</option>
+            <option value="yes">Yes — use joker ($60 limit)</option>
+          </select>
+        </div>
+        <div class="payout-box" id="payout-box">
+          <div class="payout-box-item"><span>Payout</span><strong id="pp-payout" style="color:var(--text)">—</strong></div>
+          <div class="payout-box-item"><span>P / L</span><strong id="pp-pl">—</strong></div>
+          <div class="payout-box-item"><span>Fine risk</span><strong id="pp-fine" style="color:var(--amber);font-size:12px">—</strong></div>
+        </div>
+      </div>
+
+      <!-- NO BET NOTICE -->
+      <div id="nobet-notice" style="display:none">
+        <div class="alert alert-warn">⚠ <strong>No bet placed</strong> — $40 fine + −$30 to P/L</div>
+      </div>
+
+      <div class="fg full">
+        <label>Comments</label>
+        <input type="text" id="f-comments" placeholder="Optional">
+      </div>
+
+      <div id="form-alert"></div>
+      <button class="btn btn-accent" id="add-btn" onclick="addBet()">Add entry</button>
+      <div id="add-msg" style="text-align:center;min-height:18px"></div>
+    </div>
+  </div>
+
+  <!-- Week summary -->
+  <div class="card" id="week-summary-card" style="display:none;margin-top:12px">
+    <div class="card-title">This week — <span id="ws-label"></span></div>
+    <div id="ws-body"></div>
+  </div>
+</div>
+
+<!-- ═══════════ ALL BETS ═══════════ -->
+<div id="page-bets" class="page">
+  <div class="chips" id="idiot-chips"></div>
+  <div class="chips">
+    <button class="chip active" onclick="setResFilter(this,'All')">All</button>
+    <button class="chip" onclick="setResFilter(this,'Win')">Wins</button>
+    <button class="chip" onclick="setResFilter(this,'Loss')">Losses</button>
+    <button class="chip" onclick="setResFilter(this,'Pending')">Pending</button>
+    <button class="chip" onclick="setResFilter(this,'NoBet')">No Bet</button>
+  </div>
+  <!-- Mobile cards -->
+  <div id="bets-cards" class="show-mobile"></div>
+  <!-- Desktop table -->
+  <div class="card hide-mobile">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Week</th><th>Q</th><th>Idiot</th><th>Bet</th><th>Team</th>
+          <th>Wager</th><th>Odds</th><th>Payout</th><th>P/L</th><th>Result</th><th>Del</th>
+        </tr></thead>
+        <tbody id="bets-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ WEEKLY ═══════════ -->
+<div id="page-weekly" class="page">
+  <div class="qtabs">
+    <button class="qtab active" onclick="setWvQ(this,'all')">All</button>
+    <button class="qtab" onclick="setWvQ(this,'Q1')">Q1</button>
+    <button class="qtab" onclick="setWvQ(this,'Q2')">Q2</button>
+    <button class="qtab" onclick="setWvQ(this,'Q3')">Q3</button>
+    <button class="qtab" onclick="setWvQ(this,'Q4')">Q4</button>
+  </div>
+  <div id="weekly-content"></div>
+</div>
+
+<!-- ═══════════ LEADERBOARD ═══════════ -->
+<div id="page-board" class="page">
+  <div class="stat-grid" id="global-stats"></div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Season standings</div>
+    <div id="lb-list"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Quarter breakdown</div>
+    <div class="qtabs" id="lb-qtabs">
+      <button class="qtab active" onclick="setLbQ(this,'all')">All</button>
+      <button class="qtab" onclick="setLbQ(this,'Q1')">Q1</button>
+      <button class="qtab" onclick="setLbQ(this,'Q2')">Q2</button>
+      <button class="qtab" onclick="setLbQ(this,'Q3')">Q3</button>
+      <button class="qtab" onclick="setLbQ(this,'Q4')">Q4</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr id="q-thead"></tr></thead><tbody id="q-tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ FINES ═══════════ -->
+<div id="page-fines" class="page">
+  <div class="fine-rules">
+    <h3>Fine rules 2026/27</h3>
+    <div class="rule">No return (all lost) → <strong>$40 fine</strong></div>
+    <div class="rule">Return &lt; $15 → <strong>$20 fine</strong></div>
+    <div class="rule">Return ≥ $15 → <strong>no fine</strong></div>
+    <div class="rule">No bet placed → <strong>$40 fine + −$30 P/L</strong></div>
+    <div class="rule">Any punter returns ≥ $100 → <strong>ALL other punters pay 10% of that return</strong> (including those who didn't bet)</div>
+    <div class="rule">Max $30/week · one joker week per year at $60</div>
+    <div class="rule">Exceed weekly limit → <strong>$50 fine</strong></div>
+    <div class="rule">Fines account: <strong>12-3089-0114330-02</strong></div>
+  </div>
+  <div class="stat-grid" id="fines-stats"></div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Fines by idiot — season total</div>
+    <div id="fines-totals"></div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Weekly fine detail</div>
+    <div class="tbl-wrap">
+      <table><thead><tr id="fines-thead"></tr></thead><tbody id="fines-tbody"></tbody></table>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Big win penalties (≥ $100 return)</div>
+    <div id="bigwin-list"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Joker weeks</div>
+    <div id="joker-list"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════
+const SUPABASE_URL = 'https://iaxdnwtevkadkyhxiybf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheGRud3RldmthZGt5aHhpeWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjUwMzksImV4cCI6MjA5NjAwMTAzOX0._QjzaPh23QrmBBcHLggs-ve4C09QKVpMzisq5TK7eeU';
+const HEADERS = { 'Content-Type':'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY };
+
+const IDIOTS = ['Brent','Ghoms','Jason','Porpoise','Rob','Scootsie','Shahid','Wild Boar'];
+const NORMAL_LIMIT=30, JOKER_LIMIT=60, EXCEED_FINE=50, NOBET_FINE=40, NOBET_PL=-30;
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let bets = [];
+let filterIdiot='All', filterResult='All';
+let lbQ='all', wvQ='all';
+let pendingDeleteId=null;
+let nextId=1000;
+let realtimeChannel=null;
+
+// ══════════════════════════════════════════════
+//  SUPABASE API
+// ══════════════════════════════════════════════
+async function sbFetch(path, opts={}){
+  const res = await fetch(SUPABASE_URL+path, { headers: HEADERS, ...opts });
+  if(!res.ok){ const t=await res.text(); throw new Error(t); }
+  if(res.status===204) return null;
+  return res.json();
+}
+
+async function loadBets(){
+  // 8 second timeout so mobile never hangs forever
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), 8000);
+  try{
+    const res = await fetch(SUPABASE_URL+'/rest/v1/bets?select=*&order=created_at.asc', {
+      headers: HEADERS,
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if(!res.ok){ const t=await res.text(); throw new Error(t); }
+    const data = await res.json();
+    bets = data.map(normalise);
+    nextId = bets.length ? Math.max(...bets.map(b=>b.id))+1 : 1000;
+  } catch(e){
+    clearTimeout(timer);
+    if(e.name==='AbortError') throw new Error('Request timed out — check your connection');
+    throw e;
+  }
+}
+
+function normalise(r){
+  return {
+    id: r.id,
+    idiot: r.idiot||'',
+    week: r.week||'',
+    quarter: r.quarter||'Q1',
+    team: r.team||'—',
+    bet: r.bet||'',
+    wager: parseFloat(r.wager)||0,
+    odds: parseFloat(r.odds)||0,
+    payout: parseFloat(r.payout)||0,
+    pl: parseFloat(r.pl)||0,
+    result: r.result||'Pending',
+    nobet: !!r.nobet,
+    joker: !!r.joker,
+    comments: r.comments||''
+  };
+}
+
+async function insertBet(b){
+  await sbFetch('/rest/v1/bets', {
+    method:'POST',
+    headers:{...HEADERS,'Prefer':'return=minimal'},
+    body: JSON.stringify(b)
+  });
+}
+
+async function updateBetResult(id, result, payout, pl){
+  await sbFetch(`/rest/v1/bets?id=eq.${id}`, {
+    method:'PATCH',
+    headers:{...HEADERS,'Prefer':'return=minimal'},
+    body: JSON.stringify({result, payout, pl})
+  });
+}
+
+async function deleteBetById(id){
+  await sbFetch(`/rest/v1/bets?id=eq.${id}`, { method:'DELETE' });
+}
+
+async function upsertMany(rows){
+  await sbFetch('/rest/v1/bets?on_conflict=id', {
+    method:'POST',
+    headers:{...HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify(rows)
+  });
+}
+
+// ══════════════════════════════════════════════
+//  REALTIME — poll every 15s + WebSocket if available
+// ══════════════════════════════════════════════
+let lastBetCount = 0;
+let lastMaxId = 0;
+let pollTimer = null;
+let wsRetries = 0;
+
+function startPolling(){
+  // Poll every 15 seconds as a reliable fallback
+  pollTimer = setInterval(async ()=>{
+    try{
+      const res = await fetch(
+        SUPABASE_URL+'/rest/v1/bets?select=id&order=id.desc&limit=1',
+        { headers: HEADERS }
+      );
+      if(!res.ok) return;
+      const data = await res.json();
+      const latestId = data.length ? data[0].id : 0;
+      if(latestId !== lastMaxId || bets.length !== lastBetCount){
+        lastMaxId = latestId;
+        lastBetCount = bets.length;
+        await loadBets();
+        renderAll();
+        document.getElementById('sync-dot').className='sync-dot live';
+      }
+    }catch(e){ /* silent — don't break UI */ }
+  }, 15000);
+}
+
+function connectRealtime(){
+  const dot = document.getElementById('sync-dot');
+  // Try WebSocket for instant updates; fall back gracefully
+  try{
+    const wsUrl = SUPABASE_URL.replace('https://','wss://')
+      + '/realtime/v1/websocket?apikey='+SUPABASE_KEY+'&vsn=1.0.0';
+    const ws = new WebSocket(wsUrl);
+
+    // Timeout: if not connected in 5s on mobile, skip WS and rely on polling
+    const wsTimeout = setTimeout(()=>{
+      if(ws.readyState !== WebSocket.OPEN){
+        ws.close();
+      }
+    }, 5000);
+
+    ws.onopen = () => {
+      clearTimeout(wsTimeout);
+      wsRetries = 0;
+      dot.className='sync-dot live';
+      // Supabase realtime v2 subscription format
+      ws.send(JSON.stringify({
+        topic: 'realtime:public:bets',
+        event: 'phx_join',
+        payload: { config: { broadcast: { self: true }, presence: { key: '' } } },
+        ref: '1'
+      }));
+      // Heartbeat every 25s
+      const hb = setInterval(()=>{
+        if(ws.readyState===WebSocket.OPEN){
+          ws.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:'hb'}));
+        } else { clearInterval(hb); }
+      }, 25000);
+    };
+
+    ws.onmessage = async (e) => {
+      try{
+        const msg = JSON.parse(e.data);
+        const evType = msg?.payload?.data?.type || msg?.payload?.type;
+        if(['INSERT','UPDATE','DELETE'].includes(evType)){
+          await loadBets();
+          renderAll();
+          showToast('🔄 Live update',true,1500);
+        }
+      }catch(err){ /* ignore parse errors */ }
+    };
+
+    ws.onerror = () => { dot.className='sync-dot err'; };
+    ws.onclose = () => {
+      dot.className='sync-dot err';
+      // Exponential backoff: 5s, 10s, 20s, max 30s
+      const delay = Math.min(5000 * Math.pow(2, wsRetries), 30000);
+      wsRetries++;
+      setTimeout(connectRealtime, delay);
+    };
+  } catch(e){
+    // WebSocket not supported — polling only
+    dot.className='sync-dot live';
+  }
+  // Always start polling as a safety net
+  if(!pollTimer) startPolling();
+}
+
+// ══════════════════════════════════════════════
+//  DATE HELPERS — Local timezone, no UTC shift
+// ══════════════════════════════════════════════
+function toYMD(dt){
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+function buildWednesdayOptions(){
+  const today = new Date();
+  const day = today.getDay(); // 0=Sun … 3=Wed … 6=Sat
+  // Days since last Wednesday (today if Wed)
+  const sinceLast = (day - 3 + 7) % 7;
+  const lastWed = new Date(today);
+  lastWed.setDate(today.getDate() - sinceLast);
+  // Go back 16 weeks, then forward 16 weeks
+  const start = new Date(lastWed);
+  start.setDate(lastWed.getDate() - 16*7);
+  const opts = [];
+  for(let i=0; i<=32; i++){
+    const d = new Date(start);
+    d.setDate(start.getDate() + i*7);
+    opts.push(toYMD(d));
+  }
+  return opts;
+}
+
+function buildWeekSelect(){
+  const wednesdays = buildWednesdayOptions();
+  const sel = document.getElementById('f-week');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Select week…</option>';
+  wednesdays.forEach(w => {
+    const o = document.createElement('option');
+    o.value = w;
+    o.textContent = 'Wed ' + fmtDate(w);
+    sel.appendChild(o);
+  });
+  // Default to current/most recent Wednesday
+  if(!prev){
+    const today = new Date();
+    const sinceLast = (today.getDay()-3+7)%7;
+    const last = new Date(today);
+    last.setDate(today.getDate()-sinceLast);
+    sel.value = toYMD(last);
+  } else { sel.value = prev; }
+}
+
+function fmtDate(d){
+  if(!d) return '';
+  return new Date(d+'T12:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'});
+}
+
+// ══════════════════════════════════════════════
+//  BUDGET HELPERS
+// ══════════════════════════════════════════════
+function weekWagered(idiot,week,excId=-1){
+  return bets.filter(b=>b.idiot===idiot&&b.week===week&&!b.nobet&&b.id!==excId).reduce((s,b)=>s+b.wager,0);
+}
+function weekIsJoker(idiot,week){ return bets.some(b=>b.idiot===idiot&&b.week===week&&b.joker); }
+function jokerElsewhere(idiot,week){ return bets.some(b=>b.idiot===idiot&&b.joker&&b.week!==week); }
+
+// ══════════════════════════════════════════════
+//  FINE LOGIC
+// ══════════════════════════════════════════════
+function getFineData(){
+  const allWeeks = [...new Set(bets.map(b=>b.week))].sort();
+  const rows = [];
+
+  allWeeks.forEach(w => {
+    // All big wins this week (all idiots)
+    const bigWins = bets.filter(b=>b.week===w&&b.result==='Win'&&b.payout>=100);
+
+    IDIOTS.forEach(name => {
+      const wb = bets.filter(b=>b.idiot===name&&b.week===w);
+      const settled = wb.filter(b=>!b.nobet&&b.result!=='Pending');
+      const hasNobet = wb.some(b=>b.nobet);
+      const totalWager = wb.filter(b=>!b.nobet).reduce((s,b)=>s+b.wager,0);
+      const isJoker = weekIsJoker(name,w);
+      const limit = isJoker?JOKER_LIMIT:NORMAL_LIMIT;
+      const exceedFine = totalWager>limit?EXCEED_FINE:0;
+      const totalReturn = settled.filter(b=>b.result==='Win').reduce((s,b)=>s+b.payout,0);
+      const profit = settled.reduce((s,b)=>s+b.pl,0)+(hasNobet?NOBET_PL:0);
+
+      // Base fine
+      let baseFine = 0;
+      if(hasNobet){ baseFine=NOBET_FINE; }
+      else if(settled.length>0){
+        if(totalReturn===0) baseFine=40;
+        else if(totalReturn<15) baseFine=20;
+      }
+
+      // Big win penalty — ALL other idiots pay, even if they didn't bet
+      let bigwinFine = 0;
+      bigWins.forEach(b=>{ if(b.idiot!==name) bigwinFine=+(bigwinFine+b.payout*0.1).toFixed(2); });
+
+      if(wb.length>0||bigwinFine>0){
+        rows.push({week:w,idiot:name,profit,totalReturn,baseFine,exceedFine,bigwinFine,
+          totalFine:baseFine+exceedFine+bigwinFine,isJoker,totalWager,limit,
+          hasNobet,hadEntry:wb.length>0});
+      }
+    });
+  });
+  return {rows, weeks:allWeeks};
+}
+
+// ══════════════════════════════════════════════
+//  FORM
+// ══════════════════════════════════════════════
+function onTypeChange(){
+  const isNobet = document.getElementById('f-type').value==='nobet';
+  document.getElementById('bet-fields').style.display = isNobet?'none':'';
+  document.getElementById('nobet-notice').style.display = isNobet?'':'none';
+  if(isNobet){ document.getElementById('budget-alert').innerHTML=''; }
+}
+
+function onFormChange(){
+  calcPayout();
+  const week = document.getElementById('f-week').value;
+  const idiot = document.getElementById('f-idiot').value;
+  renderWeekSummary(week);
+  updateJokerUI(idiot,week);
+}
+
+function updateJokerUI(idiot,week){
+  const el = document.getElementById('joker-status');
+  const sel = document.getElementById('f-joker');
+  if(!idiot||!week){el.textContent='';return;}
+  if(weekIsJoker(idiot,week)){el.textContent='★ active';el.style.color='var(--accent)';sel.value='yes';sel.disabled=false;}
+  else if(jokerElsewhere(idiot,week)){el.textContent='already used';el.style.color='var(--red)';sel.value='no';sel.disabled=true;}
+  else{el.textContent='available';el.style.color='var(--muted)';sel.disabled=false;}
+}
+
+function calcPayout(){
+  const idiot=document.getElementById('f-idiot').value;
+  const week=document.getElementById('f-week').value;
+  const wager=parseFloat(document.getElementById('f-wager').value)||0;
+  const odds=parseFloat(document.getElementById('f-odds').value)||0;
+  const result=document.getElementById('f-result').value;
+  const useJoker=document.getElementById('f-joker').value==='yes';
+
+  const alreadyWagered=(idiot&&week)?weekWagered(idiot,week):0;
+  const isJoker=(idiot&&week)?(weekIsJoker(idiot,week)||useJoker):useJoker;
+  const limit=isJoker?JOKER_LIMIT:NORMAL_LIMIT;
+  const totalAfter=alreadyWagered+wager;
+  const pct=Math.min(100,(totalAfter/limit)*100);
+  const barCol=totalAfter>limit?'var(--red)':totalAfter>limit*0.8?'var(--amber)':'var(--green)';
+
+  document.getElementById('budget-bar').style.width=pct+'%';
+  document.getElementById('budget-bar').style.background=barCol;
+  document.getElementById('budget-label').textContent=(idiot&&week)?`$${alreadyWagered.toFixed(0)}/$${limit} used`:'';
+
+  const wEl=document.getElementById('f-wager');
+  wEl.className=totalAfter>limit?'err':totalAfter>limit*0.8?'warn':'';
+
+  const ba=document.getElementById('budget-alert');
+  if(wager>0&&idiot&&week&&totalAfter>limit)
+    ba.innerHTML=`<div class="alert alert-err">⚠ $${totalAfter.toFixed(2)} total — exceeds $${limit} limit. <strong>$50 fine</strong> applies.</div>`;
+  else if(wager>0&&idiot&&week&&totalAfter>limit*0.8&&totalAfter<=limit)
+    ba.innerHTML=`<div class="alert alert-warn">⚠ $${(limit-totalAfter).toFixed(2)} remaining this week.</div>`;
+  else ba.innerHTML='';
+
+  const fa=document.getElementById('form-alert');
+  fa.innerHTML=(useJoker&&idiot&&jokerElsewhere(idiot,week))
+    ?`<div class="alert alert-err">❌ ${idiot} already used joker this season.</div>`:'';
+
+  if(!odds||!wager){resetPP();return;}
+  const payout=+(wager*odds).toFixed(2);
+  document.getElementById('pp-payout').textContent='$'+payout.toFixed(2);
+  const plEl=document.getElementById('pp-pl');
+  if(result==='Win'){plEl.innerHTML=`<span style="color:var(--green)">+$${(wager*(odds-1)).toFixed(2)}</span>`;}
+  else if(result==='Loss'){plEl.innerHTML=`<span style="color:var(--red)">-$${wager.toFixed(2)}</span>`;}
+  else{plEl.textContent='—';}
+  const fineEl=document.getElementById('pp-fine');
+  if(result==='Win'&&payout>=100)fineEl.textContent=`💰 Others owe $${(payout*0.1).toFixed(2)}`;
+  else if(result==='Loss')fineEl.textContent='Possible fine';
+  else fineEl.textContent='—';
+}
+
+function resetPP(){
+  document.getElementById('pp-payout').textContent='—';
+  document.getElementById('pp-pl').textContent='—';
+  document.getElementById('pp-fine').textContent='—';
+}
+
+// ══════════════════════════════════════════════
+//  ADD BET
+// ══════════════════════════════════════════════
+async function addBet(){
+  const idiot=document.getElementById('f-idiot').value;
+  const week=document.getElementById('f-week').value;
+  const type=document.getElementById('f-type').value;
+  const msg=document.getElementById('add-msg');
+  const btn=document.getElementById('add-btn');
+
+  if(!idiot||!week){msg.className='msg-err';msg.textContent='Select idiot and week.';return;}
+
+  btn.disabled=true; btn.textContent='Saving…';
+
+  try{
+    if(type==='nobet'){
+      const b={id:nextId++,idiot,week,quarter:document.getElementById('f-quarter').value,
+        team:'—',bet:'No bet placed',wager:0,odds:0,payout:0,pl:NOBET_PL,
+        result:'NoBet',nobet:true,joker:false,comments:document.getElementById('f-comments').value};
+      await insertBet(b);
+      bets.push(normalise(b));
+    } else {
+      const bet=document.getElementById('f-bet').value.trim();
+      const wager=parseFloat(document.getElementById('f-wager').value);
+      const odds=parseFloat(document.getElementById('f-odds').value);
+      const result=document.getElementById('f-result').value;
+      const useJoker=document.getElementById('f-joker').value==='yes';
+      if(!bet||!wager||!odds){msg.className='msg-err';msg.textContent='Fill in bet, wager, and odds.';btn.disabled=false;btn.textContent='Add entry';return;}
+      if(useJoker&&jokerElsewhere(idiot,week)){msg.className='msg-err';msg.textContent='Joker already used!';btn.disabled=false;btn.textContent='Add entry';return;}
+      const payout=result==='Win'?+(wager*odds).toFixed(2):result==='Loss'?0:+(wager*odds).toFixed(2);
+      const pl=result==='Win'?+(wager*(odds-1)).toFixed(2):result==='Loss'?-wager:0;
+      // Mark existing bets as joker if toggling
+      if(useJoker) bets.filter(b=>b.idiot===idiot&&b.week===week).forEach(b=>b.joker=true);
+      const b={id:nextId++,idiot,week,quarter:document.getElementById('f-quarter').value,
+        team:document.getElementById('f-team').value,bet,wager,odds,payout,pl,result,
+        nobet:false,joker:useJoker,comments:document.getElementById('f-comments').value};
+      await insertBet(b);
+      bets.push(normalise(b));
+    }
+
+    // Reset form
+    document.getElementById('f-idiot').value='';
+    document.getElementById('f-bet').value='';
+    document.getElementById('f-wager').value='';
+    document.getElementById('f-odds').value='';
+    document.getElementById('f-result').value='Pending';
+    document.getElementById('f-joker').value='no';
+    document.getElementById('f-comments').value='';
+    document.getElementById('f-type').value='bet';
+    onTypeChange();
+    document.getElementById('budget-bar').style.width='0%';
+    document.getElementById('budget-label').textContent='';
+    document.getElementById('budget-alert').innerHTML='';
+    document.getElementById('form-alert').innerHTML='';
+    document.getElementById('joker-status').textContent='';
+    resetPP();
+
+    msg.className='msg-ok'; msg.textContent='✓ Saved!';
+    setTimeout(()=>msg.textContent='',2500);
+    renderAll();
+    renderWeekSummary(week);
+  } catch(e){
+    msg.className='msg-err'; msg.textContent='Error: '+e.message;
+  }
+  btn.disabled=false; btn.textContent='Add entry';
+}
+
+// ══════════════════════════════════════════════
+//  DELETE
+// ══════════════════════════════════════════════
+function askDelete(id){
+  const b=bets.find(x=>x.id===id);
+  pendingDeleteId=id;
+  document.getElementById('confirm-msg').textContent=
+    b?`"${b.nobet?'No bet placed':b.bet}" — ${b.idiot}, ${fmtDate(b.week)}`:'This cannot be undone.';
+  document.getElementById('confirm-modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('confirm-modal').classList.remove('open'); pendingDeleteId=null; }
+async function confirmDelete(){
+  if(pendingDeleteId===null){closeModal();return;}
+  try{
+    await deleteBetById(pendingDeleteId);
+    bets=bets.filter(b=>b.id!==pendingDeleteId);
+    renderAll();
+    showToast('✓ Deleted',true);
+  }catch(e){ showToast('Error: '+e.message,false); }
+  closeModal();
+}
+document.getElementById('confirm-modal').addEventListener('click',e=>{if(e.target.id==='confirm-modal')closeModal();});
+
+async function updateResult(id,val){
+  const b=bets.find(b=>b.id===id);if(!b||b.nobet)return;
+  const payout=val==='Win'?+(b.wager*b.odds).toFixed(2):val==='Loss'?0:+(b.wager*b.odds).toFixed(2);
+  const pl=val==='Win'?+(b.wager*(b.odds-1)).toFixed(2):val==='Loss'?-b.wager:0;
+  try{
+    await updateBetResult(id,val,payout,pl);
+    b.result=val; b.payout=payout; b.pl=pl;
+    renderAll();
+  }catch(e){ showToast('Error: '+e.message,false); }
+}
+
+// ══════════════════════════════════════════════
+//  NAV
+// ══════════════════════════════════════════════
+const PAGES=['add','bets','weekly','board','fines'];
+function goto(page){
+  PAGES.forEach(p=>{
+    document.getElementById('page-'+p).classList.remove('active');
+    const tn=document.querySelector(`.nav-btn[onclick="goto('${p}')"]`);
+    const bn=document.getElementById('bnav-'+p);
+    if(tn)tn.classList.remove('active');
+    if(bn)bn.classList.remove('active');
+  });
+  document.getElementById('page-'+page).classList.add('active');
+  const tn=document.querySelector(`.nav-btn[onclick="goto('${page}')"]`);
+  const bn=document.getElementById('bnav-'+page);
+  if(tn)tn.classList.add('active');
+  if(bn)bn.classList.add('active');
+  renderAll();
+  window.scrollTo(0,0);
+}
+
+// ══════════════════════════════════════════════
+//  RENDER HELPERS
+// ══════════════════════════════════════════════
+function fmtPL(v,always){
+  if(v===0&&!always)return'<span style="color:var(--muted)">—</span>';
+  const c=v>0?'var(--green)':'var(--red)';
+  return`<span style="color:${c};font-weight:700">${v>0?'+':''}$${Math.abs(v).toFixed(2)}</span>`;
+}
+
+function renderAll(){
+  renderBets();
+  renderWeekly();
+  renderLeaderboard();
+  renderFines();
+}
+
+// ══════════════════════════════════════════════
+//  WEEK SUMMARY (add page)
+// ══════════════════════════════════════════════
+function renderWeekSummary(week){
+  const card=document.getElementById('week-summary-card');
+  if(!week){card.style.display='none';return;}
+  const wb=bets.filter(b=>b.week===week);
+  if(!wb.length){card.style.display='none';return;}
+  card.style.display='';
+  document.getElementById('ws-label').textContent='Wed '+fmtDate(week);
+
+  const byIdiot={};
+  wb.forEach(b=>{
+    if(!byIdiot[b.idiot])byIdiot[b.idiot]={bets:[],wagered:0};
+    byIdiot[b.idiot].bets.push(b);
+    if(!b.nobet)byIdiot[b.idiot].wagered+=b.wager;
+  });
+
+  document.getElementById('ws-body').innerHTML=Object.entries(byIdiot).map(([name,d])=>{
+    const isJoker=d.bets.some(b=>b.joker);
+    const limit=isJoker?JOKER_LIMIT:NORMAL_LIMIT;
+    const over=d.wagered>limit;
+    const hasNobet=d.bets.some(b=>b.nobet);
+    const settled=d.bets.filter(b=>!b.nobet&&b.result!=='Pending');
+    const totalReturn=settled.filter(b=>b.result==='Win').reduce((s,b)=>s+b.payout,0);
+    const profit=settled.reduce((s,b)=>s+b.pl,0)+(hasNobet?NOBET_PL:0);
+    const allDone=settled.length===d.bets.filter(b=>!b.nobet).length&&(settled.length>0||hasNobet);
+
+    let status='<span style="color:var(--muted)">pending</span>';
+    if(hasNobet)status=`<span style="color:var(--purple)">No bet — $40 fine</span>`;
+    else if(allDone){
+      if(totalReturn===0)status=`<span style="color:var(--red)">$0 return — $40 fine</span>`;
+      else if(totalReturn<15)status=`<span style="color:var(--amber)">$${totalReturn.toFixed(2)} — $20 fine</span>`;
+      else status=`<span style="color:var(--green)">${profit>=0?'+':''}$${profit.toFixed(2)} — no fine</span>`;
+    }
+
+    const pct=Math.min(100,d.wagered/limit*100);
+    const bc=over?'var(--red)':d.wagered>limit*0.8?'var(--amber)':'var(--green)';
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">
+      <span style="font-weight:700;min-width:80px">${name}${isJoker?'<span class="joker-tag">★</span>':''}</span>
+      <div style="width:80px;flex-shrink:0">
+        <div style="font-size:10px;color:${over?'var(--red)':'var(--muted)'}">$${d.wagered}/$${limit}</div>
+        <div class="budget-bar-wrap"><div class="budget-bar-fill" style="width:${pct}%;background:${bc}"></div></div>
+      </div>
+      <span style="flex:1">${status}</span>
+      ${over?'<span class="badge b-fine">$50 fine</span>':''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  ALL BETS
+// ══════════════════════════════════════════════
+function buildIdiotChips(){
+  document.getElementById('idiot-chips').innerHTML=['All',...IDIOTS].map(n=>
+    `<button class="chip ${n===filterIdiot?'active':''}" onclick="setIdiotFilter(this,'${n}')">${n}</button>`
+  ).join('');
+}
+function setIdiotFilter(el,name){
+  filterIdiot=name;
+  document.querySelectorAll('#idiot-chips .chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); renderBets();
+}
+function setResFilter(el,name){
+  filterResult=name;
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); renderBets();
+}
+
+function renderBets(){
+  buildIdiotChips();
+  const filtered=bets.filter(b=>{
+    const io=filterIdiot==='All'||b.idiot===filterIdiot;
+    const ro=filterResult==='All'||(filterResult==='NoBet'?b.nobet:(!b.nobet&&b.result===filterResult));
+    return io&&ro;
+  }).sort((a,b)=>b.week.localeCompare(a.week)||a.idiot.localeCompare(b.idiot));
+
+  // Mobile cards
+  const cardsEl=document.getElementById('bets-cards');
+  if(!filtered.length){ cardsEl.innerHTML='<div class="empty">No bets match filters</div>'; }
+  else {
+    cardsEl.innerHTML=filtered.map(b=>{
+      if(b.nobet) return`<div class="bet-card">
+        <div class="bet-card-top"><span class="bet-card-name">${b.idiot}</span><span class="badge b-nobet">No bet</span><span style="color:var(--muted);font-size:11px;margin-left:auto">${fmtDate(b.week)}</span></div>
+        <div class="bet-card-row"><span style="color:var(--red)">$40 fine · −$30 P/L</span><button class="btn-danger-sm" style="margin-left:auto" onclick="askDelete(${b.id})">🗑</button></div>
+      </div>`;
+      const badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
+      const plCol=b.pl>0?'var(--green)':b.pl<0?'var(--red)':'var(--muted)';
+      return`<div class="bet-card">
+        <div class="bet-card-top"><span class="bet-card-name">${b.idiot}${b.joker?'<span class="joker-tag">★</span>':''}</span>${badge}<span class="team-tag t-${b.team.toLowerCase()}">${b.team}</span><span style="color:var(--muted);font-size:11px;margin-left:auto">${fmtDate(b.week)} ${b.quarter}</span></div>
+        <div class="bet-card-desc">${b.bet}${b.result==='Win'&&b.payout>=100?' 💰':''}</div>
+        <div class="bet-card-row">
+          <span>$${b.wager} @ ${b.odds}×</span>
+          <select class="res-sel" onchange="updateResult(${b.id},this.value)">
+            <option ${b.result==='Pending'?'selected':''}>Pending</option>
+            <option ${b.result==='Win'?'selected':''}>Win</option>
+            <option ${b.result==='Loss'?'selected':''}>Loss</option>
+          </select>
+          <button class="btn-danger-sm" onclick="askDelete(${b.id})">🗑</button>
+          <span class="bet-card-pl" style="color:${plCol}">${b.result!=='Pending'?(b.pl>=0?'+':'')+'$'+Math.abs(b.pl).toFixed(2):'—'}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Desktop table
+  const tbody=document.getElementById('bets-tbody');
+  if(!filtered.length){ tbody.innerHTML='<tr><td colspan="11" class="empty">No bets match</td></tr>'; return; }
+  tbody.innerHTML=filtered.map(b=>{
+    if(b.nobet) return`<tr style="opacity:0.8">
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(b.week)}</td>
+      <td style="color:var(--muted);font-size:11px">${b.quarter}</td>
+      <td style="font-weight:700">${b.idiot}</td>
+      <td colspan="6"><span class="badge b-nobet">No bet placed</span></td>
+      <td><span style="color:var(--red);font-size:12px;font-weight:700">$40 fine·-$30</span></td>
+      <td><button class="btn-danger-sm" onclick="askDelete(${b.id})">🗑</button></td>
+    </tr>`;
+    const badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
+    return`<tr>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(b.week)}</td>
+      <td style="color:var(--muted);font-size:11px">${b.quarter}</td>
+      <td style="font-weight:700">${b.idiot}${b.joker?'<span class="joker-tag">★</span>':''}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${b.bet}">${b.bet}${b.result==='Win'&&b.payout>=100?' 💰':''}</td>
+      <td><span class="team-tag t-${b.team.toLowerCase()}">${b.team}</span></td>
+      <td>$${b.wager}</td><td style="color:var(--muted)">${b.odds}×</td>
+      <td>$${b.payout.toFixed(2)}</td>
+      <td>${fmtPL(b.pl)}</td>
+      <td><select class="res-sel" onchange="updateResult(${b.id},this.value)">
+        <option ${b.result==='Pending'?'selected':''}>Pending</option>
+        <option ${b.result==='Win'?'selected':''}>Win</option>
+        <option ${b.result==='Loss'?'selected':''}>Loss</option>
+      </select></td>
+      <td><button class="btn-danger-sm" onclick="askDelete(${b.id})">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  WEEKLY VIEW
+// ══════════════════════════════════════════════
+function setWvQ(el,q){ wvQ=q; document.querySelectorAll('#page-weekly .qtab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderWeekly(); }
+
+function renderWeekly(){
+  const qs=wvQ==='all'?['Q1','Q2','Q3','Q4']:[wvQ];
+  const el=document.getElementById('weekly-content');
+  el.innerHTML=qs.map(q=>{
+    const qb=bets.filter(b=>b.quarter===q);
+    if(!qb.length) return`<div class="wk-section"><div class="wk-title">${q}</div><div class="empty" style="padding:16px">No entries yet</div></div>`;
+    const weeks=[...new Set(qb.map(b=>b.week))].sort();
+
+    // Mobile: stacked week blocks
+    const mobileHtml=weeks.map(w=>{
+      const rows=IDIOTS.map(name=>{
+        const wb=qb.filter(b=>b.idiot===name&&b.week===w);
+        if(!wb.length) return'';
+        const nobet=wb.find(b=>b.nobet);
+        if(nobet) return`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:700">${name}</span><span class="badge b-nobet">No bet</span></div>`;
+        const weekPL=wb.filter(b=>b.result!=='Pending').reduce((s,b)=>s+b.pl,0);
+        const plStr=wb.some(b=>b.result==='Pending')?'<span style="color:var(--muted)">pending</span>':`<span style="color:${weekPL>=0?'var(--green)':'var(--red)'};font-weight:700">${weekPL>=0?'+':''}$${Math.abs(weekPL).toFixed(2)}</span>`;
+        return`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <div style="display:flex;justify-content:space-between"><span style="font-weight:700">${name}${wb.some(b=>b.joker)?'<span class="joker-tag">★</span>':''}</span>${plStr}</div>
+          ${wb.map(b=>`<div style="color:var(--muted);font-size:11px;padding-left:8px">${b.result==='Win'?'✓':b.result==='Loss'?'✗':'…'} ${b.bet}</div>`).join('')}
+        </div>`;
+      }).filter(Boolean).join('');
+      if(!rows) return'';
+      return`<div class="card" style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px">Wed ${fmtDate(w)}</div>${rows}</div>`;
+    }).join('');
+
+    // Desktop table
+    const thead=`<tr><th>Idiot</th>${weeks.map(w=>`<th style="text-align:center;min-width:100px">Wed ${fmtDate(w)}</th>`).join('')}<th style="text-align:right">Q P/L</th></tr>`;
+    const tbody2=IDIOTS.map(name=>{
+      const cells=weeks.map(w=>{
+        const wb=qb.filter(b=>b.idiot===name&&b.week===w);
+        if(!wb.length)return`<td style="text-align:center;color:var(--border2)">·</td>`;
+        const nobet=wb.find(b=>b.nobet);
+        if(nobet)return`<td style="text-align:center"><span style="color:var(--purple);font-size:11px">No bet<br><span style="color:var(--red);font-size:10px">$40 fine</span></span></td>`;
+        const weekPL=wb.filter(b=>b.result!=='Pending').reduce((s,b)=>s+b.pl,0);
+        const tret=wb.filter(b=>b.result==='Win').reduce((s,b)=>s+b.payout,0);
+        let fineHtml='';
+        if(wb.every(b=>b.result!=='Pending')){
+          if(tret===0)fineHtml=`<div style="color:var(--red);font-size:10px">$40 fine</div>`;
+          else if(tret<15)fineHtml=`<div style="color:var(--amber);font-size:10px">$20 fine</div>`;
+        }
+        return`<td style="text-align:center">${wb.some(b=>b.joker)?'<span class="joker-tag" style="margin-right:2px">★</span>':''}${wb.map(b=>{const c=b.result==='Win'?'var(--green)':b.result==='Loss'?'var(--red)':'var(--muted)';return`<div style="color:${c};font-size:11px">${b.result==='Win'?'✓':b.result==='Loss'?'✗':'…'} ${b.result==='Win'?'+$'+(b.pl).toFixed(0):b.result==='Loss'?'-$'+b.wager:b.result}</div>`;}).join('')}${fineHtml}</td>`;
+      }).join('');
+      const qpl=qb.filter(b=>b.idiot===name&&b.result!=='Pending'&&!b.nobet).reduce((s,b)=>s+b.pl,0)+qb.filter(b=>b.idiot===name&&b.nobet).length*NOBET_PL;
+      const hasAny=qb.some(b=>b.idiot===name);
+      return`<tr><td style="font-weight:700;white-space:nowrap">${name}</td>${cells}<td style="text-align:right">${hasAny?fmtPL(qpl,true):'<span style="color:var(--border2)">—</span>'}</td></tr>`;
+    }).join('');
+
+    return`<div class="wk-section">
+      <div class="wk-title">${q}</div>
+      <div class="show-mobile">${mobileHtml}</div>
+      <div class="hide-mobile"><div class="card"><div class="tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody2}</tbody></table></div></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  LEADERBOARD
+// ══════════════════════════════════════════════
+function setLbQ(el,q){ lbQ=q; document.querySelectorAll('#lb-qtabs .qtab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderLeaderboard(); }
+
+function effectivePL(name,subset){
+  const s=subset.filter(b=>!b.nobet&&b.result!=='Pending');
+  const n=subset.filter(b=>b.nobet);
+  return s.reduce((a,b)=>a+b.pl,0)+n.length*NOBET_PL;
+}
+
+function renderLeaderboard(){
+  const settled=bets.filter(b=>!b.nobet&&b.result!=='Pending');
+  const totalPL=IDIOTS.reduce((s,n)=>s+effectivePL(n,bets.filter(b=>b.idiot===n)),0);
+  const totalW=settled.reduce((s,b)=>s+b.wager,0);
+  const wins=settled.filter(b=>b.result==='Win').length;
+  const wr=settled.length?Math.round(wins/settled.length*100):0;
+
+  document.getElementById('global-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Entries</div><div class="stat-value">${bets.length}</div><div class="stat-sub">${settled.length} settled</div></div>
+    <div class="stat"><div class="stat-label">Season P/L</div><div class="stat-value ${totalPL>=0?'pos':'neg'}">${totalPL>=0?'+':''}$${totalPL.toFixed(0)}</div></div>
+    <div class="stat"><div class="stat-label">Wagered</div><div class="stat-value">$${totalW.toFixed(0)}</div></div>
+    <div class="stat"><div class="stat-label">Win rate</div><div class="stat-value">${wr}%</div><div class="stat-sub">${wins}W/${settled.length-wins}L</div></div>`;
+
+  const data=IDIOTS.map(name=>{
+    const mb=bets.filter(b=>b.idiot===name);
+    const ms=mb.filter(b=>!b.nobet&&b.result!=='Pending');
+    const w=ms.filter(b=>b.result==='Win').length;
+    const n=mb.filter(b=>b.nobet).length;
+    return{name,pl:effectivePL(name,mb),wins:w,total:ms.length,wr:ms.length?Math.round(w/ms.length*100):0,nobets:n};
+  }).sort((a,b)=>b.pl-a.pl);
+
+  const maxAbs=Math.max(...data.map(d=>Math.abs(d.pl)),1);
+  document.getElementById('lb-list').innerHTML=data.map((d,i)=>{
+    const medals=['🥇','🥈','🥉'];
+    const pct=Math.min(100,(Math.abs(d.pl)/maxAbs)*100);
+    return`<div class="lb-row">
+      <div class="lb-rank">${i<3?medals[i]:i+1}</div>
+      <div style="flex:1">
+        <div class="lb-name">${d.name}${d.nobets?`<span style="color:var(--purple);font-size:11px;font-weight:400;margin-left:6px">${d.nobets}× no bet</span>`:''}</div>
+        <div class="lb-meta">${d.wins}W / ${d.total-d.wins}L · ${d.wr}% win rate</div>
+      </div>
+      <div class="lb-bar-wrap"><div class="lb-bar" style="width:${pct}%;background:${d.pl>=0?'var(--green)':'var(--red)'}"></div></div>
+      <div class="lb-pl ${d.pl>0?'pos':d.pl<0?'neg':'neu'}">${d.pl>0?'+':''}$${d.pl.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+
+  const qs=['Q1','Q2','Q3','Q4'];
+  const cols=lbQ==='all'?qs:[lbQ];
+  document.getElementById('q-thead').innerHTML='<th>Idiot</th>'+cols.map(q=>`<th>${q} P/L</th><th>W/L</th>`).join('')+'<th>Total</th>';
+  document.getElementById('q-tbody').innerHTML=IDIOTS.map(name=>{
+    const cells=cols.map(q=>{
+      const qb=bets.filter(b=>b.idiot===name&&b.quarter===q);
+      const pl=effectivePL(name,qb);
+      const qs2=qb.filter(b=>!b.nobet&&b.result!=='Pending');
+      const w=qs2.filter(b=>b.result==='Win').length;
+      return`<td>${fmtPL(pl)}</td><td style="color:var(--muted);font-size:12px">${w}/${qs2.length}</td>`;
+    }).join('');
+    const tot=effectivePL(name,bets.filter(b=>b.idiot===name));
+    return`<tr><td style="font-weight:700">${name}</td>${cells}<td>${fmtPL(tot)}</td></tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  FINES
+// ══════════════════════════════════════════════
+function renderFines(){
+  const{rows,weeks}=getFineData();
+  const bigWins=bets.filter(b=>b.result==='Win'&&b.payout>=100).sort((a,b)=>b.payout-a.payout);
+
+  const tBase=rows.reduce((s,r)=>s+r.baseFine,0);
+  const tExceed=rows.reduce((s,r)=>s+r.exceedFine,0);
+  const tBig=rows.reduce((s,r)=>s+r.bigwinFine,0);
+
+  document.getElementById('fines-stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Total fines</div><div class="stat-value" style="color:var(--amber)">$${(tBase+tExceed+tBig).toFixed(0)}</div></div>
+    <div class="stat"><div class="stat-label">Loss fines</div><div class="stat-value">$${tBase.toFixed(0)}</div></div>
+    <div class="stat"><div class="stat-label">Exceed fines</div><div class="stat-value">$${tExceed.toFixed(0)}</div></div>
+    <div class="stat"><div class="stat-label">Big win</div><div class="stat-value">$${tBig.toFixed(0)}</div></div>`;
+
+  // Per-idiot totals (mobile-friendly)
+  const idiotTotals=IDIOTS.map(name=>({name,total:rows.filter(r=>r.idiot===name).reduce((s,r)=>s+r.totalFine,0)})).sort((a,b)=>b.total-a.total);
+  document.getElementById('fines-totals').innerHTML=idiotTotals.map(({name,total})=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px">
+      <span style="font-weight:700">${name}</span>
+      <span style="${total>0?'color:var(--amber);font-size:18px;font-weight:700':'color:var(--muted)'}">${total>0?'$'+total.toFixed(2):'—'}</span>
+    </div>`).join('');
+
+  // Weekly detail table
+  document.getElementById('fines-thead').innerHTML='<th>Idiot</th>'+weeks.map(w=>`<th style="white-space:nowrap;text-align:center">${fmtDate(w)}</th>`).join('')+'<th>Total</th>';
+  document.getElementById('fines-tbody').innerHTML=idiotTotals.map(({name})=>{
+    const cells=weeks.map(w=>{
+      const r=rows.find(r=>r.week===w&&r.idiot===name);
+      if(!r)return'<td style="text-align:center;color:var(--muted)">—</td>';
+      if(r.totalFine===0)return r.hadEntry?'<td style="text-align:center;color:var(--green)">✓</td>':'<td style="text-align:center;color:var(--muted)">—</td>';
+      const tip=[r.baseFine?`Loss/nobet: $${r.baseFine}`:'',r.exceedFine?`Over limit: $${r.exceedFine}`:'',r.bigwinFine?`Big win: $${r.bigwinFine.toFixed(2)}`:''].filter(Boolean).join(' | ');
+      const note=!r.hadEntry?'<div style="font-size:9px;color:var(--muted)">no bet</div>':'';
+      return`<td style="text-align:center" title="${tip}"><span class="badge b-fine">$${r.totalFine.toFixed(0)}</span>${note}</td>`;
+    }).join('');
+    const tot=rows.filter(r=>r.idiot===name).reduce((s,r)=>s+r.totalFine,0);
+    return`<tr><td style="font-weight:700">${name}</td>${cells}<td style="font-size:16px;font-weight:700;color:${tot>0?'var(--amber)':'var(--muted)'}">${tot>0?'$'+tot.toFixed(2):'—'}</td></tr>`;
+  }).join('');
+
+  // Big wins
+  document.getElementById('bigwin-list').innerHTML=!bigWins.length?'<div class="empty">No big wins yet (≥$100)</div>':bigWins.map(b=>{
+    const pen=(b.payout*0.1).toFixed(2);
+    return`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <span style="font-weight:700;color:var(--accent)">${b.idiot}</span>
+        <span class="badge b-win">$${b.payout.toFixed(2)} return</span>
+        <span style="color:var(--muted);font-size:11px">${fmtDate(b.week)} · ${b.bet}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">All other ${IDIOTS.length-1} idiots owe <strong style="color:var(--amber)">$${pen}</strong> each · Total: <strong style="color:var(--amber)">$${(parseFloat(pen)*(IDIOTS.length-1)).toFixed(2)}</strong></div>
+    </div>`;
+  }).join('');
+
+  // Joker weeks
+  document.getElementById('joker-list').innerHTML=IDIOTS.map(name=>{
+    const jb=bets.find(b=>b.idiot===name&&b.joker);
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span style="font-weight:700;min-width:90px">${name}</span>
+      ${jb?`<span class="joker-tag">★ Joker</span><span style="color:var(--muted)">${fmtDate(jb.week)}</span>`:'<span style="color:var(--muted);font-size:12px">not used</span>'}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  BACKUP — EXPORT
+// ══════════════════════════════════════════════
+function _doExport(){
+  try{
+    const WB=XLSX.utils.book_new();
+
+    // All Bets sheet
+    const hdrs=['ID','Idiot','Week','Quarter','Team','Bet','Wager','Odds','Payout','P/L','Result','No Bet','Joker','Comments'];
+    const rows=bets.map(b=>[b.id,b.idiot,b.week,b.quarter,b.nobet?'—':b.team,
+      b.nobet?'No bet placed':b.bet, b.nobet?'':b.wager, b.nobet?'':b.odds,
+      b.nobet?'':b.payout, b.pl, b.nobet?'No Bet':b.result,
+      b.nobet?'YES':'', b.joker?'YES':'', b.comments||'']);
+    const ws1=XLSX.utils.aoa_to_sheet([hdrs,...rows]);
+    ws1['!cols']=[{wch:7},{wch:12},{wch:12},{wch:6},{wch:6},{wch:40},{wch:8},{wch:7},{wch:10},{wch:10},{wch:10},{wch:7},{wch:6},{wch:20}];
+    XLSX.utils.book_append_sheet(WB,ws1,'All Bets');
+
+    // Weekly Summary
+    const allWeeks=[...new Set(bets.map(b=>b.week))].sort();
+    const ws2=XLSX.utils.aoa_to_sheet([
+      ['Week',...IDIOTS,'Total'],
+      ...allWeeks.map(w=>{
+        const pls=IDIOTS.map(name=>{
+          const wb=bets.filter(b=>b.week===w&&b.idiot===name);
+          return +(wb.filter(b=>!b.nobet&&b.result!=='Pending').reduce((s,b)=>s+b.pl,0)+(wb.some(b=>b.nobet)?NOBET_PL:0)).toFixed(2);
+        });
+        return[w,...pls,+pls.reduce((a,b)=>a+b,0).toFixed(2)];
+      })
+    ]);
+    ws2['!cols']=[{wch:12},...IDIOTS.map(()=>({wch:11})),{wch:10}];
+    XLSX.utils.book_append_sheet(WB,ws2,'Weekly Summary');
+
+    // Leaderboard
+    const ws3=XLSX.utils.aoa_to_sheet([
+      ['Rank','Idiot','Season P/L','Wins','Losses','Win Rate','No Bets'],
+      ...IDIOTS.map(name=>{
+        const mb=bets.filter(b=>b.idiot===name);
+        const ms=mb.filter(b=>!b.nobet&&b.result!=='Pending');
+        const w=ms.filter(b=>b.result==='Win').length;
+        const n=mb.filter(b=>b.nobet).length;
+        return[0,name,+(effectivePL(name,mb)).toFixed(2),w,ms.length-w,ms.length?Math.round(w/ms.length*100)+'%':'—',n];
+      }).sort((a,b)=>b[2]-a[2]).map((r,i)=>{r[0]=i+1;return r;})
+    ]);
+    XLSX.utils.book_append_sheet(WB,ws3,'Leaderboard');
+
+    // Fines
+    const{rows:fr,weeks:fw}=getFineData();
+    const ws4=XLSX.utils.aoa_to_sheet([
+      ['Idiot',...fw.map(w=>'Fine '+fmtDate(w)),'Total'],
+      ...IDIOTS.map(name=>{
+        const cs=fw.map(w=>{ const r=fr.find(r=>r.week===w&&r.idiot===name); return r?+r.totalFine.toFixed(2):0; });
+        return[name,...cs,+cs.reduce((a,b)=>a+b,0).toFixed(2)];
+      })
+    ]);
+    XLSX.utils.book_append_sheet(WB,ws4,'Fines');
+
+    const stamp=toYMD(new Date()).replace(/-/g,'');
+    XLSX.writeFile(WB,`Idiots_Backup_${stamp}.xlsx`);
+    showToast('✓ Backup downloaded!',true);
+  }catch(e){ showToast('Export failed: '+e.message,false); }
+}
+
+// ══════════════════════════════════════════════
+//  BACKUP — IMPORT
+// ══════════════════════════════════════════════
+function _doImport(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  event.target.value='';
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets['All Bets'];
+      if(!ws){showToast('❌ No "All Bets" sheet found',false);return;}
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!data.length){showToast('❌ Sheet is empty',false);return;}
+      const imported=data.map((r,i)=>{
+        const nobet=String(r['No Bet']).trim().toUpperCase()==='YES';
+        return{
+          id:parseInt(r['ID'])||Date.now()+i,
+          idiot:String(r['Idiot']||'').trim(),
+          week:String(r['Week']||'').trim(),
+          quarter:String(r['Quarter']||'Q1').trim(),
+          team:nobet?'—':String(r['Team']||'').trim(),
+          bet:nobet?'No bet placed':String(r['Bet']||'').trim(),
+          wager:nobet?0:parseFloat(r['Wager'])||0,
+          odds:nobet?0:parseFloat(r['Odds'])||0,
+          payout:nobet?0:parseFloat(r['Payout'])||0,
+          pl:parseFloat(r['P/L'])||0,
+          result:nobet?'NoBet':String(r['Result']||'Pending').trim(),
+          nobet, joker:String(r['Joker']).trim().toUpperCase()==='YES',
+          comments:String(r['Comments']||'').trim()
+        };
+      }).filter(r=>r.idiot&&r.week);
+      if(!imported.length){showToast('❌ No valid rows found',false);return;}
+      if(!confirm(`Import ${imported.length} entries from "${file.name}"?\n\nThis will REPLACE all data in the database.`))return;
+      showToast('Uploading…',true,60000);
+      // Delete all then insert
+      await sbFetch('/rest/v1/bets?id=gte.0',{method:'DELETE'});
+      await upsertMany(imported);
+      bets=imported.map(normalise);
+      nextId=Math.max(500,...bets.map(b=>b.id))+1;
+      renderAll();
+      showToast(`✓ Imported ${imported.length} entries`,true);
+    }catch(e){ showToast('Import failed: '+e.message,false); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════
+function showToast(msg,ok,dur=3500){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.display='block';
+  t.style.color=ok?'var(--green)':'var(--red)';
+  t.style.borderColor=ok?'rgba(62,207,110,0.3)':'rgba(240,96,96,0.3)';
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.style.display='none',dur);
+}
+
+// ══════════════════════════════════════════════
+//  XLSX — lazy load only when needed
+// ══════════════════════════════════════════════
+function loadXLSX(cb){
+  if(window.XLSX){ cb(); return; }
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload=cb;
+  s.onerror=()=>showToast('Could not load export library',false);
+  document.head.appendChild(s);
+}
+
+// Lazy-load XLSX then run export/import
+function exportBackup(){ loadXLSX(_doExport); }
+function importBackup(e){ loadXLSX(()=>_doImport(e)); }
+
+// ══════════════════════════════════════════════
+//  SHOW/HIDE mobile vs desktop
+// ══════════════════════════════════════════════
+const mq=window.matchMedia('(min-width:700px)');
+function applyMQ(e){
+  document.querySelectorAll('.show-mobile').forEach(el=>el.style.display=e.matches?'none':'');
+  document.querySelectorAll('.hide-mobile').forEach(el=>el.style.display=e.matches?'':'none');
+}
+mq.addEventListener('change',applyMQ);
+applyMQ(mq);
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+async function init(){
+  const loadingEl = document.getElementById('loading');
+  loadingEl.innerHTML=`<div class="spinner"></div><div style="color:var(--muted);font-size:13px">Loading bets…</div>`;
+  loadingEl.style.display='flex';
+
+  try{
+    await loadBets();
+  }catch(e){
+    loadingEl.innerHTML=`
+      <div style="color:var(--red);text-align:center;padding:20px;max-width:300px">
+        <div style="font-size:32px;margin-bottom:12px">⚠</div>
+        <div style="font-weight:700;margin-bottom:8px">Could not load data</div>
+        <div style="color:var(--muted);font-size:13px;margin-bottom:16px">${e.message}</div>
+        <button onclick="init()" style="background:var(--accent);color:#111;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer">Try again</button>
+      </div>`;
+    return;
+  }
+
+  // Data loaded — show the app immediately
+  buildWeekSelect();
+  renderAll();
+  loadingEl.style.display='none';
+
+  // Connect realtime separately — never blocks the UI
+  lastMaxId = bets.length ? Math.max(...bets.map(b=>b.id)) : 0;
+  lastBetCount = bets.length;
+  connectRealtime();
+}
+
+init();
+</script>
+</body>
+</html>
