@@ -14,6 +14,7 @@
   --red:#f06060; --red-bg:rgba(240,96,96,0.1);
   --amber:#f5a623; --amber-bg:rgba(245,166,35,0.1);
   --purple:#a78bfa; --purple-bg:rgba(167,139,250,0.1);
+  --teal:#2dd4bf; --teal-bg:rgba(45,212,191,0.1);
   --r:10px; --r-sm:6px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -112,6 +113,8 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .b-pending{background:rgba(255,255,255,0.06);color:var(--muted);}
 .b-nobet{background:var(--purple-bg);color:var(--purple);}
 .b-fine{background:var(--amber-bg);color:var(--amber);}
+.b-boar{background:var(--teal-bg);color:var(--teal);}
+.b-paid{background:var(--green-bg);color:var(--green);}
 .joker-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;background:rgba(232,197,71,0.2);color:var(--accent);margin-left:3px;}
 .team-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;}
 .t-nio{background:rgba(100,150,255,0.12);color:#8aabff;}
@@ -222,6 +225,7 @@ tbody tr:hover td{background:var(--surface2);}
     <button class="nav-btn" onclick="goto('weekly')">Weekly</button>
     <button class="nav-btn" onclick="goto('board')">Leaderboard</button>
     <button class="nav-btn" onclick="goto('fines')">Fines</button>
+    <button class="nav-btn" onclick="goto('payments')">Payments</button>
   </nav>
   <div class="hdr-actions">
     <div class="sync-dot" id="sync-dot" title="Sync status"></div>
@@ -239,6 +243,7 @@ tbody tr:hover td{background:var(--surface2);}
     <button class="bnav-btn" onclick="goto('weekly')" id="bnav-weekly"><div class="icon">📅</div>Weekly</button>
     <button class="bnav-btn" onclick="goto('board')" id="bnav-board"><div class="icon">🏆</div>Board</button>
     <button class="bnav-btn" onclick="goto('fines')" id="bnav-fines"><div class="icon">💸</div>Fines</button>
+    <button class="bnav-btn" onclick="goto('payments')" id="bnav-payments"><div class="icon">💳</div>Pay</button>
   </div>
 </nav>
 
@@ -278,6 +283,7 @@ tbody tr:hover td{background:var(--surface2);}
           <select id="f-type" onchange="onTypeChange()">
             <option value="bet">Bet placed</option>
             <option value="nobet">No bet placed</option>
+            <option value="boar">🐗 Boar Punt</option>
           </select>
         </div>
       </div>
@@ -313,7 +319,7 @@ tbody tr:hover td{background:var(--surface2);}
             <input type="number" id="f-odds" placeholder="3.50" min="1.01" step="0.01" inputmode="decimal" oninput="calcPayout()">
           </div>
         </div>
-        <div class="fg">
+        <div class="fg" id="joker-row">
           <label>Joker week ($60 limit)? <span id="joker-status" style="font-weight:400;text-transform:none;font-size:10px;color:var(--muted)"></span></label>
           <select id="f-joker" onchange="calcPayout()">
             <option value="no">No — normal ($30 limit)</option>
@@ -330,6 +336,14 @@ tbody tr:hover td{background:var(--surface2);}
       <!-- NO BET NOTICE -->
       <div id="nobet-notice" style="display:none">
         <div class="alert alert-warn">⚠ <strong>No bet placed</strong> — $40 fine + −$30 to P/L</div>
+      </div>
+
+      <!-- BOAR PUNT NOTICE -->
+      <div id="boar-notice" style="display:none">
+        <div class="alert" style="background:var(--teal-bg);border:1px solid rgba(45,212,191,0.3);color:var(--teal)">
+          🐗 <strong>Boar Punt</strong> — no wager limit applies.<br>
+          <span style="font-size:12px">Win → profit reduces fines owed (capped at balance). Loss → wager added to fines owed.</span>
+        </div>
       </div>
 
       <div class="fg full">
@@ -359,6 +373,7 @@ tbody tr:hover td{background:var(--surface2);}
     <button class="chip" onclick="setResFilter(this,'Loss')">Losses</button>
     <button class="chip" onclick="setResFilter(this,'Pending')">Pending</button>
     <button class="chip" onclick="setResFilter(this,'NoBet')">No Bet</button>
+    <button class="chip" onclick="setResFilter(this,'Boar')">🐗 Boar</button>
   </div>
   <!-- Mobile cards -->
   <div id="bets-cards" class="show-mobile"></div>
@@ -421,6 +436,7 @@ tbody tr:hover td{background:var(--surface2);}
     <div class="rule">Any punter returns ≥ $100 → <strong>ALL other punters pay 10% of that return</strong> (including those who didn't bet)</div>
     <div class="rule">Max $30/week · one joker week per year at $60</div>
     <div class="rule">Exceed weekly limit → <strong>$50 fine</strong></div>
+    <div class="rule">🐗 Boar Punt — no wager limit · Win: profit reduces fines owed · Loss: wager added to fines owed</div>
     <div class="rule">Fines account: <strong>12-3089-0114330-02</strong></div>
   </div>
   <div class="stat-grid" id="fines-stats"></div>
@@ -442,6 +458,50 @@ tbody tr:hover td{background:var(--surface2);}
     <div class="card-title">Joker weeks</div>
     <div id="joker-list"></div>
   </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">🐗 Boar punts — fine impact</div>
+    <div id="boar-fines-list"></div>
+  </div>
+</div>
+
+<!-- ═══════════ PAYMENTS ═══════════ -->
+<div id="page-payments" class="page">
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Record a fine payment</div>
+    <div class="form-stack">
+      <div class="form-row">
+        <div class="fg">
+          <label>Idiot</label>
+          <select id="pay-idiot">
+            <option value="">Select…</option>
+            <option>Brent</option><option>Ghoms</option><option>Jason</option>
+            <option>Porpoise</option><option>Rob</option><option>Scootsie</option>
+            <option>Shahid</option><option>Wild Boar</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Amount ($)</label>
+          <input type="number" id="pay-amount" placeholder="e.g. 40" min="0.01" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+      <div class="fg">
+        <label>Note (optional)</label>
+        <input type="text" id="pay-note" placeholder="e.g. Week 3 loss fine">
+      </div>
+      <button class="btn btn-accent" id="pay-btn" onclick="addPayment()">Record payment</button>
+      <div id="pay-msg" style="text-align:center;min-height:18px"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Fine balances</div>
+    <div id="pay-balances"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Payment history</div>
+    <div id="pay-history"></div>
+  </div>
 </div>
 
 <script>
@@ -459,10 +519,12 @@ const NORMAL_LIMIT=30, JOKER_LIMIT=60, EXCEED_FINE=50, NOBET_FINE=40, NOBET_PL=-
 //  STATE
 // ══════════════════════════════════════════════
 let bets = [];
+let payments = [];
 let filterIdiot='All', filterResult='All';
 let lbQ='all', wvQ='all';
 let pendingDeleteId=null;
 let nextId=1000;
+let nextPayId=5000;
 let realtimeChannel=null;
 
 // ══════════════════════════════════════════════
@@ -511,6 +573,7 @@ function normalise(r){
     result: r.result||'Pending',
     nobet: !!r.nobet,
     joker: !!r.joker,
+    boar: !!r.boar,
     comments: r.comments||''
   };
 }
@@ -543,6 +606,25 @@ async function upsertMany(rows){
   });
 }
 
+// ── PAYMENTS API ──
+async function loadPayments(){
+  const data = await sbFetch('/rest/v1/payments?select=*&order=created_at.asc');
+  payments = data || [];
+  nextPayId = payments.length ? Math.max(...payments.map(p=>p.id))+1 : 5000;
+}
+
+async function insertPayment(p){
+  await sbFetch('/rest/v1/payments', {
+    method:'POST',
+    headers:{...HEADERS,'Prefer':'return=minimal'},
+    body: JSON.stringify(p)
+  });
+}
+
+async function deletePaymentById(id){
+  await sbFetch(`/rest/v1/payments?id=eq.${id}`, { method:'DELETE' });
+}
+
 // ══════════════════════════════════════════════
 //  REALTIME — poll every 15s + WebSocket if available
 // ══════════════════════════════════════════════
@@ -565,7 +647,7 @@ function startPolling(){
       if(latestId !== lastMaxId || bets.length !== lastBetCount){
         lastMaxId = latestId;
         lastBetCount = bets.length;
-        await loadBets();
+        await Promise.all([loadBets(), loadPayments()]);
         renderAll();
         document.getElementById('sync-dot').className='sync-dot live';
       }
@@ -612,7 +694,7 @@ function connectRealtime(){
         const msg = JSON.parse(e.data);
         const evType = msg?.payload?.data?.type || msg?.payload?.type;
         if(['INSERT','UPDATE','DELETE'].includes(evType)){
-          await loadBets();
+          await Promise.all([loadBets(), loadPayments()]);
           renderAll();
           showToast('🔄 Live update',true,1500);
         }
@@ -699,16 +781,29 @@ function jokerElsewhere(idiot,week){ return bets.some(b=>b.idiot===idiot&&b.joke
 // ══════════════════════════════════════════════
 //  FINE LOGIC
 // ══════════════════════════════════════════════
+// Boar punt fine impact for an idiot:
+// Win → profit reduces fines owed (capped at 0, never negative)
+// Loss → wager added to fines owed
+// This is applied AFTER all other fines are calculated
+function getBoarFineImpact(name){
+  const boarBets = bets.filter(b=>b.boar&&b.idiot===name&&b.result!=='Pending');
+  let impact = 0;
+  boarBets.forEach(b=>{
+    if(b.result==='Loss') impact += b.wager;          // adds to fines
+    else if(b.result==='Win') impact -= b.pl;          // reduces fines (profit = pl for wins)
+  });
+  return impact; // positive = more fines, negative = fine reduction
+}
+
 function getFineData(){
-  const allWeeks = [...new Set(bets.map(b=>b.week))].sort();
+  const allWeeks = [...new Set(bets.filter(b=>!b.boar).map(b=>b.week))].sort();
   const rows = [];
 
   allWeeks.forEach(w => {
-    // All big wins this week (all idiots)
-    const bigWins = bets.filter(b=>b.week===w&&b.result==='Win'&&b.payout>=100);
+    const bigWins = bets.filter(b=>b.week===w&&b.result==='Win'&&b.payout>=100&&!b.boar);
 
     IDIOTS.forEach(name => {
-      const wb = bets.filter(b=>b.idiot===name&&b.week===w);
+      const wb = bets.filter(b=>b.idiot===name&&b.week===w&&!b.boar);
       const settled = wb.filter(b=>!b.nobet&&b.result!=='Pending');
       const hasNobet = wb.some(b=>b.nobet);
       const totalWager = wb.filter(b=>!b.nobet).reduce((s,b)=>s+b.wager,0);
@@ -718,7 +813,6 @@ function getFineData(){
       const totalReturn = settled.filter(b=>b.result==='Win').reduce((s,b)=>s+b.payout,0);
       const profit = settled.reduce((s,b)=>s+b.pl,0)+(hasNobet?NOBET_PL:0);
 
-      // Base fine
       let baseFine = 0;
       if(hasNobet){ baseFine=NOBET_FINE; }
       else if(settled.length>0){
@@ -726,7 +820,6 @@ function getFineData(){
         else if(totalReturn<15) baseFine=20;
       }
 
-      // Big win penalty — ALL other idiots pay, even if they didn't bet
       let bigwinFine = 0;
       bigWins.forEach(b=>{ if(b.idiot!==name) bigwinFine=+(bigwinFine+b.payout*0.1).toFixed(2); });
 
@@ -744,10 +837,20 @@ function getFineData(){
 //  FORM
 // ══════════════════════════════════════════════
 function onTypeChange(){
-  const isNobet = document.getElementById('f-type').value==='nobet';
+  const type = document.getElementById('f-type').value;
+  const isNobet = type==='nobet';
+  const isBoar  = type==='boar';
+
   document.getElementById('bet-fields').style.display = isNobet?'none':'';
   document.getElementById('nobet-notice').style.display = isNobet?'':'none';
-  if(isNobet){ document.getElementById('budget-alert').innerHTML=''; }
+  document.getElementById('boar-notice').style.display  = isBoar?'':'none';
+
+  // Boar punt: hide budget bar + joker (no limit applies)
+  document.getElementById('budget-bar').parentElement.style.display = isBoar?'none':'';
+  document.getElementById('budget-label').style.display = isBoar?'none':'';
+  document.getElementById('joker-row').style.display = isBoar?'none':'';
+
+  if(isNobet||isBoar){ document.getElementById('budget-alert').innerHTML=''; }
 }
 
 function onFormChange(){
@@ -768,6 +871,8 @@ function updateJokerUI(idiot,week){
 }
 
 function calcPayout(){
+  const type=document.getElementById('f-type').value;
+  const isBoar=type==='boar';
   const idiot=document.getElementById('f-idiot').value;
   const week=document.getElementById('f-week').value;
   const wager=parseFloat(document.getElementById('f-wager').value)||0;
@@ -775,29 +880,30 @@ function calcPayout(){
   const result=document.getElementById('f-result').value;
   const useJoker=document.getElementById('f-joker').value==='yes';
 
-  const alreadyWagered=(idiot&&week)?weekWagered(idiot,week):0;
-  const isJoker=(idiot&&week)?(weekIsJoker(idiot,week)||useJoker):useJoker;
-  const limit=isJoker?JOKER_LIMIT:NORMAL_LIMIT;
-  const totalAfter=alreadyWagered+wager;
-  const pct=Math.min(100,(totalAfter/limit)*100);
-  const barCol=totalAfter>limit?'var(--red)':totalAfter>limit*0.8?'var(--amber)':'var(--green)';
-
-  document.getElementById('budget-bar').style.width=pct+'%';
-  document.getElementById('budget-bar').style.background=barCol;
-  document.getElementById('budget-label').textContent=(idiot&&week)?`$${alreadyWagered.toFixed(0)}/$${limit} used`:'';
-
-  const wEl=document.getElementById('f-wager');
-  wEl.className=totalAfter>limit?'err':totalAfter>limit*0.8?'warn':'';
-
-  const ba=document.getElementById('budget-alert');
-  if(wager>0&&idiot&&week&&totalAfter>limit)
-    ba.innerHTML=`<div class="alert alert-err">⚠ $${totalAfter.toFixed(2)} total — exceeds $${limit} limit. <strong>$50 fine</strong> applies.</div>`;
-  else if(wager>0&&idiot&&week&&totalAfter>limit*0.8&&totalAfter<=limit)
-    ba.innerHTML=`<div class="alert alert-warn">⚠ $${(limit-totalAfter).toFixed(2)} remaining this week.</div>`;
-  else ba.innerHTML='';
+  if(!isBoar){
+    const alreadyWagered=(idiot&&week)?weekWagered(idiot,week):0;
+    const isJoker=(idiot&&week)?(weekIsJoker(idiot,week)||useJoker):useJoker;
+    const limit=isJoker?JOKER_LIMIT:NORMAL_LIMIT;
+    const totalAfter=alreadyWagered+wager;
+    const pct=Math.min(100,(totalAfter/limit)*100);
+    const barCol=totalAfter>limit?'var(--red)':totalAfter>limit*0.8?'var(--amber)':'var(--green)';
+    document.getElementById('budget-bar').style.width=pct+'%';
+    document.getElementById('budget-bar').style.background=barCol;
+    document.getElementById('budget-label').textContent=(idiot&&week)?`$${alreadyWagered.toFixed(0)}/$${limit} used`:'';
+    const wEl=document.getElementById('f-wager');
+    wEl.className=totalAfter>limit?'err':totalAfter>limit*0.8?'warn':'';
+    const ba=document.getElementById('budget-alert');
+    if(wager>0&&idiot&&week&&totalAfter>limit)
+      ba.innerHTML=`<div class="alert alert-err">⚠ $${totalAfter.toFixed(2)} total — exceeds $${limit} limit. <strong>$50 fine</strong> applies.</div>`;
+    else if(wager>0&&idiot&&week&&totalAfter>limit*0.8&&totalAfter<=limit)
+      ba.innerHTML=`<div class="alert alert-warn">⚠ $${(limit-totalAfter).toFixed(2)} remaining this week.</div>`;
+    else ba.innerHTML='';
+  } else {
+    document.getElementById('f-wager').className='';
+  }
 
   const fa=document.getElementById('form-alert');
-  fa.innerHTML=(useJoker&&idiot&&jokerElsewhere(idiot,week))
+  fa.innerHTML=(useJoker&&!isBoar&&idiot&&jokerElsewhere(idiot,week))
     ?`<div class="alert alert-err">❌ ${idiot} already used joker this season.</div>`:'';
 
   if(!odds||!wager){resetPP();return;}
@@ -808,9 +914,15 @@ function calcPayout(){
   else if(result==='Loss'){plEl.innerHTML=`<span style="color:var(--red)">-$${wager.toFixed(2)}</span>`;}
   else{plEl.textContent='—';}
   const fineEl=document.getElementById('pp-fine');
-  if(result==='Win'&&payout>=100)fineEl.textContent=`💰 Others owe $${(payout*0.1).toFixed(2)}`;
-  else if(result==='Loss')fineEl.textContent='Possible fine';
-  else fineEl.textContent='—';
+  if(isBoar){
+    if(result==='Win') fineEl.innerHTML=`<span style="color:var(--teal)">Reduces fines owed</span>`;
+    else if(result==='Loss') fineEl.innerHTML=`<span style="color:var(--red)">+$${wager.toFixed(2)} to fines</span>`;
+    else fineEl.textContent='—';
+  } else if(result==='Win'&&payout>=100){
+    fineEl.textContent=`💰 Others owe $${(payout*0.1).toFixed(2)}`;
+  } else if(result==='Loss'){
+    fineEl.textContent='Possible fine';
+  } else fineEl.textContent='—';
 }
 
 function resetPP(){
@@ -837,7 +949,20 @@ async function addBet(){
     if(type==='nobet'){
       const b={id:nextId++,idiot,week,quarter:document.getElementById('f-quarter').value,
         team:'—',bet:'No bet placed',wager:0,odds:0,payout:0,pl:NOBET_PL,
-        result:'NoBet',nobet:true,joker:false,comments:document.getElementById('f-comments').value};
+        result:'NoBet',nobet:true,joker:false,boar:false,comments:document.getElementById('f-comments').value};
+      await insertBet(b);
+      bets.push(normalise(b));
+    } else if(type==='boar'){
+      const bet=document.getElementById('f-bet').value.trim();
+      const wager=parseFloat(document.getElementById('f-wager').value);
+      const odds=parseFloat(document.getElementById('f-odds').value);
+      const result=document.getElementById('f-result').value;
+      if(!bet||!wager||!odds){msg.className='msg-err';msg.textContent='Fill in bet, wager, and odds.';btn.disabled=false;btn.textContent='Add entry';return;}
+      const payout=result==='Win'?+(wager*odds).toFixed(2):result==='Loss'?0:+(wager*odds).toFixed(2);
+      const pl=result==='Win'?+(wager*(odds-1)).toFixed(2):result==='Loss'?-wager:0;
+      const b={id:nextId++,idiot,week,quarter:document.getElementById('f-quarter').value,
+        team:document.getElementById('f-team').value,bet,wager,odds,payout,pl,result,
+        nobet:false,joker:false,boar:true,comments:document.getElementById('f-comments').value};
       await insertBet(b);
       bets.push(normalise(b));
     } else {
@@ -850,11 +975,10 @@ async function addBet(){
       if(useJoker&&jokerElsewhere(idiot,week)){msg.className='msg-err';msg.textContent='Joker already used!';btn.disabled=false;btn.textContent='Add entry';return;}
       const payout=result==='Win'?+(wager*odds).toFixed(2):result==='Loss'?0:+(wager*odds).toFixed(2);
       const pl=result==='Win'?+(wager*(odds-1)).toFixed(2):result==='Loss'?-wager:0;
-      // Mark existing bets as joker if toggling
       if(useJoker) bets.filter(b=>b.idiot===idiot&&b.week===week).forEach(b=>b.joker=true);
       const b={id:nextId++,idiot,week,quarter:document.getElementById('f-quarter').value,
         team:document.getElementById('f-team').value,bet,wager,odds,payout,pl,result,
-        nobet:false,joker:useJoker,comments:document.getElementById('f-comments').value};
+        nobet:false,joker:useJoker,boar:false,comments:document.getElementById('f-comments').value};
       await insertBet(b);
       bets.push(normalise(b));
     }
@@ -923,7 +1047,7 @@ async function updateResult(id,val){
 // ══════════════════════════════════════════════
 //  NAV
 // ══════════════════════════════════════════════
-const PAGES=['add','bets','weekly','board','fines'];
+const PAGES=['add','bets','weekly','board','fines','payments'];
 function goto(page){
   PAGES.forEach(p=>{
     document.getElementById('page-'+p).classList.remove('active');
@@ -955,6 +1079,7 @@ function renderAll(){
   renderWeekly();
   renderLeaderboard();
   renderFines();
+  renderPayments();
 }
 
 // ══════════════════════════════════════════════
@@ -1030,7 +1155,11 @@ function renderBets(){
   buildIdiotChips();
   const filtered=bets.filter(b=>{
     const io=filterIdiot==='All'||b.idiot===filterIdiot;
-    const ro=filterResult==='All'||(filterResult==='NoBet'?b.nobet:(!b.nobet&&b.result===filterResult));
+    let ro=false;
+    if(filterResult==='All') ro=true;
+    else if(filterResult==='NoBet') ro=b.nobet;
+    else if(filterResult==='Boar') ro=b.boar;
+    else ro=!b.nobet&&!b.boar&&b.result===filterResult;
     return io&&ro;
   }).sort((a,b)=>b.week.localeCompare(a.week)||a.idiot.localeCompare(b.idiot));
 
@@ -1043,6 +1172,24 @@ function renderBets(){
         <div class="bet-card-top"><span class="bet-card-name">${b.idiot}</span><span class="badge b-nobet">No bet</span><span style="color:var(--muted);font-size:11px;margin-left:auto">${fmtDate(b.week)}</span></div>
         <div class="bet-card-row"><span style="color:var(--red)">$40 fine · −$30 P/L</span><button class="btn-danger-sm" style="margin-left:auto" onclick="askDelete(${b.id})">🗑</button></div>
       </div>`;
+      if(b.boar){
+        const impact=b.result==='Win'?`<span style="color:var(--teal)">−$${b.pl.toFixed(2)} fines</span>`:b.result==='Loss'?`<span style="color:var(--red)">+$${b.wager.toFixed(2)} fines</span>`:'<span style="color:var(--muted)">pending</span>';
+        const badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
+        return`<div class="bet-card">
+          <div class="bet-card-top"><span class="bet-card-name">${b.idiot}</span><span class="badge b-boar">🐗 Boar</span>${badge}<span style="color:var(--muted);font-size:11px;margin-left:auto">${fmtDate(b.week)}</span></div>
+          <div class="bet-card-desc">${b.bet}</div>
+          <div class="bet-card-row">
+            <span>$${b.wager} @ ${b.odds}×</span>
+            <select class="res-sel" onchange="updateResult(${b.id},this.value)">
+              <option ${b.result==='Pending'?'selected':''}>Pending</option>
+              <option ${b.result==='Win'?'selected':''}>Win</option>
+              <option ${b.result==='Loss'?'selected':''}>Loss</option>
+            </select>
+            <button class="btn-danger-sm" onclick="askDelete(${b.id})">🗑</button>
+            <span class="bet-card-pl">${impact}</span>
+          </div>
+        </div>`;
+      }
       const badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
       const plCol=b.pl>0?'var(--green)':b.pl<0?'var(--red)':'var(--muted)';
       return`<div class="bet-card">
@@ -1074,6 +1221,26 @@ function renderBets(){
       <td><span style="color:var(--red);font-size:12px;font-weight:700">$40 fine·-$30</span></td>
       <td><button class="btn-danger-sm" onclick="askDelete(${b.id})">🗑</button></td>
     </tr>`;
+    if(b.boar){
+      const badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
+      const impact=b.result==='Win'?`<span style="color:var(--teal)">−$${b.pl.toFixed(2)} fines</span>`:b.result==='Loss'?`<span style="color:var(--red)">+$${b.wager.toFixed(2)} fines</span>`:'<span style="color:var(--muted)">—</span>';
+      return`<tr style="background:rgba(45,212,191,0.03)">
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(b.week)}</td>
+        <td style="color:var(--muted);font-size:11px">${b.quarter}</td>
+        <td style="font-weight:700">${b.idiot}</td>
+        <td title="${b.bet}">${b.bet} <span class="badge b-boar">🐗</span></td>
+        <td><span class="team-tag t-${b.team.toLowerCase()}">${b.team}</span></td>
+        <td>$${b.wager}</td><td style="color:var(--muted)">${b.odds}×</td>
+        <td>$${b.payout.toFixed(2)}</td>
+        <td>${impact}</td>
+        <td><select class="res-sel" onchange="updateResult(${b.id},this.value)">
+          <option ${b.result==='Pending'?'selected':''}>Pending</option>
+          <option ${b.result==='Win'?'selected':''}>Win</option>
+          <option ${b.result==='Loss'?'selected':''}>Loss</option>
+        </select></td>
+        <td><button class="btn-danger-sm" onclick="askDelete(${b.id})">🗑</button></td>
+      </tr>`;
+    }
     const badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
     return`<tr>
       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(b.week)}</td>
@@ -1279,6 +1446,120 @@ function renderFines(){
       ${jb?`<span class="joker-tag">★ Joker</span><span style="color:var(--muted)">${fmtDate(jb.week)}</span>`:'<span style="color:var(--muted);font-size:12px">not used</span>'}
     </div>`;
   }).join('');
+
+  // Boar punts
+  const boarBets = bets.filter(b=>b.boar).sort((a,b)=>b.week.localeCompare(a.week));
+  const boarEl = document.getElementById('boar-fines-list');
+  if(!boarBets.length){ boarEl.innerHTML='<div class="empty">No boar punts yet</div>'; }
+  else{
+    boarEl.innerHTML = boarBets.map(b=>{
+      const isPending = b.result==='Pending';
+      const isWin = b.result==='Win';
+      const impact = isPending ? '—' : isWin
+        ? `<span style="color:var(--teal)">−$${b.pl.toFixed(2)} off fines</span>`
+        : `<span style="color:var(--red)">+$${b.wager.toFixed(2)} to fines</span>`;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">
+        <span style="font-weight:700">${b.idiot}</span>
+        <span class="badge b-boar">🐗 Boar</span>
+        <span style="${b.result==='Win'?'color:var(--green)':b.result==='Loss'?'color:var(--red)':'color:var(--muted)'}">${b.result}</span>
+        <span style="color:var(--muted);font-size:11px">${fmtDate(b.week)} · ${b.bet} · $${b.wager}@${b.odds}×</span>
+        <span style="margin-left:auto;font-weight:700">${impact}</span>
+      </div>`;
+    }).join('');
+  }
+
+// ══════════════════════════════════════════════
+//  BALANCE HELPER
+//  gross fines + boar fine impact - payments made
+// ══════════════════════════════════════════════
+function getBalance(name){
+  const {rows} = getFineData();
+  const grossFines = rows.filter(r=>r.idiot===name).reduce((s,r)=>s+r.totalFine,0);
+  const boarImpact = getBoarFineImpact(name);
+  const paid = payments.filter(p=>p.idiot===name).reduce((s,p)=>s+parseFloat(p.amount),0);
+  // boarImpact: positive = adds to fines, negative = reduces fines
+  const afterBoar = Math.max(0, grossFines + boarImpact); // capped at 0
+  return +(afterBoar - paid).toFixed(2);
+}
+
+// ══════════════════════════════════════════════
+//  PAYMENTS
+// ══════════════════════════════════════════════
+async function addPayment(){
+  const idiot = document.getElementById('pay-idiot').value;
+  const amount = parseFloat(document.getElementById('pay-amount').value);
+  const note = document.getElementById('pay-note').value.trim();
+  const msg = document.getElementById('pay-msg');
+  const btn = document.getElementById('pay-btn');
+
+  if(!idiot || !amount || amount<=0){
+    msg.className='msg-err'; msg.textContent='Select idiot and enter a valid amount.'; return;
+  }
+
+  btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const p = {id:nextPayId++, idiot, amount:+amount.toFixed(2), note, created_at: new Date().toISOString()};
+    await insertPayment(p);
+    payments.push(p);
+    document.getElementById('pay-idiot').value='';
+    document.getElementById('pay-amount').value='';
+    document.getElementById('pay-note').value='';
+    msg.className='msg-ok'; msg.textContent=`✓ $${amount.toFixed(2)} payment recorded for ${idiot}`;
+    setTimeout(()=>msg.textContent='',3000);
+    renderAll();
+  }catch(e){ msg.className='msg-err'; msg.textContent='Error: '+e.message; }
+  btn.disabled=false; btn.textContent='Record payment';
+}
+
+async function deletePayment(id){
+  try{
+    await deletePaymentById(id);
+    payments=payments.filter(p=>p.id!==id);
+    renderAll();
+    showToast('✓ Payment removed',true);
+  }catch(e){ showToast('Error: '+e.message,false); }
+}
+
+function renderPayments(){
+  // Balances card
+  const balances = IDIOTS.map(name=>({name, balance:getBalance(name)}))
+    .sort((a,b)=>b.balance-a.balance);
+
+  document.getElementById('pay-balances').innerHTML = balances.map(({name,balance})=>{
+    const paid = payments.filter(p=>p.idiot===name).reduce((s,p)=>s+parseFloat(p.amount),0);
+    const {rows} = getFineData();
+    const gross = rows.filter(r=>r.idiot===name).reduce((s,r)=>s+r.totalFine,0);
+    const boarImpact = getBoarFineImpact(name);
+    const boarStr = boarImpact!==0
+      ? `<span style="color:${boarImpact>0?'var(--red)':'var(--teal)'};font-size:11px;margin-left:6px">${boarImpact>0?'+':''}$${boarImpact.toFixed(2)} boar</span>`
+      : '';
+    const paidStr = paid>0?`<span style="color:var(--green);font-size:11px;margin-left:6px">−$${paid.toFixed(2)} paid</span>`:'';
+    const balCol = balance>0?'var(--red)':balance<0?'var(--green)':'var(--muted)';
+    const balStr = balance>0?`Owes $${balance.toFixed(2)}`:balance<0?`Overpaid $${Math.abs(balance).toFixed(2)}`:'Settled ✓';
+    return`<div style="display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <span style="font-weight:700;min-width:90px;font-size:14px">${name}</span>
+      <span style="color:var(--muted);font-size:12px">Fines: $${gross.toFixed(2)}${boarStr}${paidStr}</span>
+      <span style="margin-left:auto;font-weight:700;font-size:15px;color:${balCol}">${balStr}</span>
+    </div>`;
+  }).join('');
+
+  // Payment history
+  const sorted = [...payments].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  if(!sorted.length){
+    document.getElementById('pay-history').innerHTML='<div class="empty">No payments recorded yet</div>';
+    return;
+  }
+  document.getElementById('pay-history').innerHTML = sorted.map(p=>{
+    const dt = new Date(p.created_at);
+    const dateStr = dt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'});
+    return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">
+      <span style="font-weight:700">${p.idiot}</span>
+      <span class="badge b-paid">$${parseFloat(p.amount).toFixed(2)}</span>
+      ${p.note?`<span style="color:var(--muted)">${p.note}</span>`:''}
+      <span style="margin-left:auto;color:var(--muted);font-size:11px">${dateStr}</span>
+      <button class="btn-danger-sm" onclick="deletePayment(${p.id})">✕</button>
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════════
@@ -1440,7 +1721,7 @@ async function init(){
   loadingEl.style.display='flex';
 
   try{
-    await loadBets();
+    await Promise.all([loadBets(), loadPayments()]);
   }catch(e){
     loadingEl.innerHTML=`
       <div style="color:var(--red);text-align:center;padding:20px;max-width:300px">
