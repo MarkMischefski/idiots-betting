@@ -222,9 +222,6 @@ tbody tr:hover td{background:var(--surface2);}
         <div class="fg"><label>Idiot</label>
           <select id="f-idiot" onchange="onFormChange()">
             <option value="">Select…</option>
-            <option>Brent</option><option>Ghoms</option><option>Jason</option>
-            <option>Porpoise</option><option>Rob</option><option>Scootsie</option>
-            <option>Shahid</option><option>Wild Boar</option>
           </select>
         </div>
         <div class="fg"><label>Week ending (Wed)</label>
@@ -424,9 +421,6 @@ tbody tr:hover td{background:var(--surface2);}
         <div class="fg"><label>Idiot</label>
           <select id="pay-idiot">
             <option value="">Select…</option>
-            <option>Brent</option><option>Ghoms</option><option>Jason</option>
-            <option>Porpoise</option><option>Rob</option><option>Scootsie</option>
-            <option>Shahid</option><option>Wild Boar</option>
           </select>
         </div>
         <div class="fg"><label>Amount ($)</label>
@@ -452,9 +446,6 @@ tbody tr:hover td{background:var(--surface2);}
         <div class="fg"><label>Idiot</label>
           <select id="meddle-idiot" onchange="updateMeddlePreview()">
             <option value="">Select…</option>
-            <option>Brent</option><option>Ghoms</option><option>Jason</option>
-            <option>Porpoise</option><option>Rob</option><option>Scootsie</option>
-            <option>Shahid</option><option>Wild Boar</option>
           </select>
         </div>
         <div class="fg"><label>Amount ($) — negative to reduce</label>
@@ -527,7 +518,11 @@ const TEAMS_KEY = 'idiots_teams_v1';
 
 // ─── NAME & TEAM MANAGEMENT ───────────────────────
 var IDIOTS = loadNames();
-var IDIOT_TEAMS = loadTeamsLocal(); // start with local, overwritten by DB on init
+var IDIOT_TEAMS = loadTeamsLocal();
+
+// Populate selects immediately with whatever names we have (local cache or defaults)
+// This runs synchronously so selects are never empty, even before DB responds
+document.addEventListener('DOMContentLoaded', function(){ rebuildSelects(); });
 
 function loadNames() {
   try {
@@ -1212,7 +1207,7 @@ async function addBet() {
     var b;
     if(type==='nobet') {
       b={id:nextId++,idiot:idiot,week:week,quarter:document.getElementById('f-quarter').value,
-        team:'—',bet:'No bet placed',wager:0,odds:0,payout:0,pl:NOBET_PL,
+        team:getIdiotTeam(idiot)||'NIO',bet:'No bet placed',wager:0,odds:0,payout:0,pl:NOBET_PL,
         result:'NoBet',nobet:true,joker:false,boar:false,comments:document.getElementById('f-comments').value};
     } else {
       var bet = document.getElementById('f-bet').value.trim();
@@ -1734,25 +1729,25 @@ function renderLeaderboard() {
   // ── Team comparison — uses b.team field on each bet ────
   var teamNames = ['NIO','FFS'];
   var teamData = teamNames.map(function(t) {
-    // Use the team stored ON each bet (b.team) for actual bets
-    var tb = bets.filter(function(b){ return b.team===t&&!b.boar&&!b.nobet&&b.result!=='Pending'; });
-    var wins = tb.filter(function(b){ return b.result==='Win'; });
-    var losses = tb.filter(function(b){ return b.result==='Loss'; });
-    var bettingPL = parseFloat(tb.reduce(function(s,b){ return s+b.pl; },0).toFixed(2));
-    var totalWager = parseFloat(tb.reduce(function(s,b){ return s+b.wager; },0).toFixed(2));
-    var wr = tb.length ? Math.round(wins.length/tb.length*100) : 0;
-    var avgWinOdds = wins.length ? parseFloat((wins.reduce(function(s,b){ return s+b.odds; },0)/wins.length).toFixed(2)) : 0;
-    var avgWager = tb.length ? parseFloat((totalWager/tb.length).toFixed(2)) : 0;
-    // Members: idiots whose SETTING is this team
-    var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
-    // Add no-bet penalties for idiots on this team (uses idiot→team mapping)
-    var nobetPenalty = bets.filter(function(b){
-      return b.nobet && getIdiotTeam(b.idiot)===t;
-    }).length * NOBET_PL; // NOBET_PL is negative (-30)
+    // Use b.team on every bet — no-bets now store the real team too
+    var tb = bets.filter(function(b){ return b.team===t&&!b.boar&&b.result!=='Pending'; });
+    var settled = tb.filter(function(b){ return !b.nobet; });
+    var wins = settled.filter(function(b){ return b.result==='Win'; });
+    var losses = settled.filter(function(b){ return b.result==='Loss'; });
+    // P/L = sum of settled bet P/L + no-bet penalties (NOBET_PL each)
+    var bettingPL = parseFloat(settled.reduce(function(s,b){ return s+b.pl; },0).toFixed(2));
+    var nobets = tb.filter(function(b){ return b.nobet; });
+    var nobetPenalty = nobets.length * NOBET_PL; // NOBET_PL = -30
     var totalPL = parseFloat((bettingPL + nobetPenalty).toFixed(2));
-    var nobets = bets.filter(function(b){ return b.nobet && getIdiotTeam(b.idiot)===t; }).length;
-    return { team:t, members:members, bets:tb.length, wins:wins.length, losses:losses.length,
-             totalPL:totalPL, totalWager:totalWager, wr:wr, avgWinOdds:avgWinOdds, avgWager:avgWager, nobets:nobets };
+    var totalWager = parseFloat(settled.reduce(function(s,b){ return s+b.wager; },0).toFixed(2));
+    var wr = settled.length ? Math.round(wins.length/settled.length*100) : 0;
+    var avgWinOdds = wins.length ? parseFloat((wins.reduce(function(s,b){ return s+b.odds; },0)/wins.length).toFixed(2)) : 0;
+    var avgWager = settled.length ? parseFloat((totalWager/settled.length).toFixed(2)) : 0;
+    // Members from settings (display only)
+    var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
+    return { team:t, members:members, bets:settled.length, wins:wins.length, losses:losses.length,
+             totalPL:totalPL, totalWager:totalWager, wr:wr, avgWinOdds:avgWinOdds, avgWager:avgWager,
+             nobets:nobets.length };
   });
 
   var tc = document.getElementById('team-comparison');
