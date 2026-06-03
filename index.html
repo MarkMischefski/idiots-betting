@@ -1061,46 +1061,83 @@ function renderWeekly() {
   var qs=wvQ==='all'?['Q1','Q2','Q3','Q4']:[wvQ];
   var html='';
   qs.forEach(function(q){
-    var qb=bets.filter(function(b){ return b.quarter===q&&!b.boar; });
-    if(!qb.length){ html+='<div class="wk-section"><div class="wk-title">'+q+'</div><div class="empty" style="padding:16px">No entries yet</div></div>'; return; }
+    // Include ALL bets for this quarter (including boar) to build week list
+    var allQb=bets.filter(function(b){ return b.quarter===q; });
+    var qb=allQb.filter(function(b){ return !b.boar; }); // normal bets for P/L calc
+    if(!allQb.length){ html+='<div class="wk-section"><div class="wk-title">'+q+'</div><div class="empty" style="padding:16px">No entries yet</div></div>'; return; }
     var weeks=[];
-    qb.forEach(function(b){ if(weeks.indexOf(b.week)<0) weeks.push(b.week); });
+    allQb.forEach(function(b){ if(weeks.indexOf(b.week)<0) weeks.push(b.week); });
     weeks.sort();
 
     // Mobile: stacked week blocks
     var mobileHtml=weeks.map(function(w){
       var rows=IDIOTS.map(function(name){
-        var wb=qb.filter(function(b){ return b.idiot===name&&b.week===w; });
+        var wb=allQb.filter(function(b){ return b.idiot===name&&b.week===w; });
         if(!wb.length) return '';
         var nobet=wb.find(function(b){ return b.nobet; });
-        if(nobet) return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:700">'+name+'</span><span class="badge b-nobet">No bet</span></div>';
-        var weekPL=wb.filter(function(b){ return b.result!=='Pending'; }).reduce(function(s,b){ return s+b.pl; },0);
-        var plStr=wb.some(function(b){ return b.result==='Pending'; })?'<span style="color:var(--muted)">pending</span>':'<span style="color:'+(weekPL>=0?'var(--green)':'var(--red)')+';font-weight:700">'+(weekPL>=0?'+':'')+'$'+Math.abs(weekPL).toFixed(2)+'</span>';
-        return '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><div style="display:flex;justify-content:space-between"><span style="font-weight:700">'+name+(wb.some(function(b){ return b.joker; })?'<span class="joker-tag">★</span>':'')+'</span>'+plStr+'</div>'+wb.map(function(b){ return '<div style="color:var(--muted);font-size:11px;padding-left:8px">'+(b.result==='Win'?'✓':b.result==='Loss'?'✗':'…')+' '+b.bet+'</div>'; }).join('')+'</div>';
+        var boars=wb.filter(function(b){ return b.boar; });
+        var normal=wb.filter(function(b){ return !b.nobet&&!b.boar; });
+        var parts='';
+        if(nobet) parts+='<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:700">'+name+'</span><span class="badge b-nobet">No bet</span></div>';
+        else if(normal.length){
+          var weekPL=normal.filter(function(b){ return b.result!=='Pending'; }).reduce(function(s,b){ return s+b.pl; },0);
+          var plStr=normal.some(function(b){ return b.result==='Pending'; })?'<span style="color:var(--muted)">pending</span>':'<span style="color:'+(weekPL>=0?'var(--green)':'var(--red)')+';font-weight:700">'+(weekPL>=0?'+':'')+'$'+Math.abs(weekPL).toFixed(2)+'</span>';
+          parts+='<div style="display:flex;justify-content:space-between"><span style="font-weight:700">'+name+(wb.some(function(b){ return b.joker; })?'<span class="joker-tag">★</span>':'')+'</span>'+plStr+'</div>';
+          parts+=normal.map(function(b){ return '<div style="color:var(--muted);font-size:11px;padding-left:8px">'+(b.result==='Win'?'✓':b.result==='Loss'?'✗':'…')+' '+b.bet+'</div>'; }).join('');
+        }
+        // Boar punts shown separately
+        if(boars.length){
+          boars.forEach(function(b){
+            var imp=b.result==='Pending'?'<span style="color:var(--muted)">pending</span>':b.result==='Win'?'<span style="color:var(--teal)">−$'+b.pl.toFixed(2)+' fines</span>':'<span style="color:var(--red)">+$'+b.wager+' fines</span>';
+            parts+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">'
+              +(normal.length||nobet?'':'<span style="font-weight:700">'+name+'</span>')
+              +'<span style="color:var(--teal);font-size:11px">🐗 '+b.bet+'</span>'+imp+'</div>';
+          });
+        }
+        if(!parts) return '';
+        return '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">'+parts+'</div>';
       }).filter(Boolean).join('');
       if(!rows) return '';
       return '<div class="card" style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px">Wed '+fmtDate(w)+'</div>'+rows+'</div>';
     }).join('');
 
     // Desktop table
-    var thead='<tr><th>Idiot</th>'+weeks.map(function(w){ return '<th style="text-align:center;min-width:100px">Wed '+fmtDate(w)+'</th>'; }).join('')+'<th style="text-align:right">Q P/L</th></tr>';
+    var thead='<tr><th>Idiot</th>'+weeks.map(function(w){ return '<th style="text-align:center;min-width:110px">Wed '+fmtDate(w)+'</th>'; }).join('')+'<th style="text-align:right">Q P/L</th></tr>';
     var tbody2=IDIOTS.map(function(name){
       var cells=weeks.map(function(w){
-        var wb=qb.filter(function(b){ return b.idiot===name&&b.week===w; });
+        var wb=allQb.filter(function(b){ return b.idiot===name&&b.week===w; });
         if(!wb.length) return '<td style="text-align:center;color:var(--border2)">·</td>';
         var nobet=wb.find(function(b){ return b.nobet; });
-        if(nobet) return '<td style="text-align:center"><span style="color:var(--purple);font-size:11px">No bet<br><span style="color:var(--red);font-size:10px">$40 fine</span></span></td>';
-        var weekPL=wb.filter(function(b){ return b.result!=='Pending'; }).reduce(function(s,b){ return s+b.pl; },0);
-        var tret=wb.filter(function(b){ return b.result==='Win'; }).reduce(function(s,b){ return s+b.payout; },0);
-        var fineHtml='';
-        if(wb.every(function(b){ return b.result!=='Pending'; })){
-          if(tret===0) fineHtml='<div style="color:var(--red);font-size:10px">$40 fine</div>';
-          else if(tret<15) fineHtml='<div style="color:var(--amber);font-size:10px">$20 fine</div>';
+        var boars=wb.filter(function(b){ return b.boar; });
+        var normal=wb.filter(function(b){ return !b.nobet&&!b.boar; });
+        var cellHtml='';
+        if(nobet){
+          cellHtml='<div style="color:var(--purple);font-size:11px">No bet<br><span style="color:var(--red);font-size:10px">$40 fine</span></div>';
+        } else if(normal.length){
+          var tret=normal.filter(function(b){ return b.result==='Win'; }).reduce(function(s,b){ return s+b.payout; },0);
+          var fineHtml='';
+          if(normal.every(function(b){ return b.result!=='Pending'; })){
+            if(tret===0) fineHtml='<div style="color:var(--red);font-size:10px">$40 fine</div>';
+            else if(tret<15) fineHtml='<div style="color:var(--amber);font-size:10px">$20 fine</div>';
+          }
+          cellHtml=(wb.some(function(b){ return b.joker; })?'<span class="joker-tag" style="margin-right:2px">★</span>':'')
+            +normal.map(function(b){ var c=b.result==='Win'?'var(--green)':b.result==='Loss'?'var(--red)':'var(--muted)'; return '<div style="color:'+c+';font-size:11px">'+(b.result==='Win'?'✓':b.result==='Loss'?'✗':'…')+' '+(b.result==='Win'?'+$'+b.pl.toFixed(0):b.result==='Loss'?'-$'+b.wager:b.result)+'</div>'; }).join('')
+            +fineHtml;
         }
-        return '<td style="text-align:center">'+(wb.some(function(b){ return b.joker; })?'<span class="joker-tag" style="margin-right:2px">★</span>':'')+wb.map(function(b){ var c=b.result==='Win'?'var(--green)':b.result==='Loss'?'var(--red)':'var(--muted)'; return '<div style="color:'+c+';font-size:11px">'+(b.result==='Win'?'✓':b.result==='Loss'?'✗':'…')+' '+(b.result==='Win'?'+$'+b.pl.toFixed(0):b.result==='Loss'?'-$'+b.wager:b.result)+'</div>'; }).join('')+fineHtml+'</td>';
+        // Add boar punt info
+        if(boars.length){
+          boars.forEach(function(b){
+            var imp=b.result==='Pending'?'<span style="color:var(--muted);font-size:10px">🐗 pending</span>'
+              :b.result==='Win'?'<span style="color:var(--teal);font-size:10px">🐗 −$'+b.pl.toFixed(2)+' fines</span>'
+              :'<span style="color:var(--red);font-size:10px">🐗 +$'+b.wager+' fines</span>';
+            cellHtml+=imp;
+          });
+        }
+        return '<td style="text-align:center">'+cellHtml+'</td>';
       }).join('');
-      var qpl=qb.filter(function(b){ return b.idiot===name&&b.result!=='Pending'&&!b.nobet; }).reduce(function(s,b){ return s+b.pl; },0)+qb.filter(function(b){ return b.idiot===name&&b.nobet; }).length*NOBET_PL;
-      var hasAny=qb.some(function(b){ return b.idiot===name; });
+      var qpl=qb.filter(function(b){ return b.idiot===name&&b.result!=='Pending'&&!b.nobet; }).reduce(function(s,b){ return s+b.pl; },0)
+              +allQb.filter(function(b){ return b.idiot===name&&b.nobet; }).length*NOBET_PL;
+      var hasAny=allQb.some(function(b){ return b.idiot===name; });
       return '<tr><td style="font-weight:700;white-space:nowrap">'+name+'</td>'+cells+'<td style="text-align:right">'+(hasAny?fmtPL(qpl,true):'<span style="color:var(--border2)">—</span>')+'</td></tr>';
     }).join('');
 
