@@ -158,6 +158,20 @@ tbody tr:hover td{background:var(--surface2);}
   </div>
 </div>
 
+<div class="modal-bg" id="season-modal">
+  <div class="modal">
+    <h3>🏁 Start New Season</h3>
+    <p>This will archive all <strong id="season-count"></strong> current bets and payments, then start fresh. Archived data is kept in the database but hidden from view.</p>
+    <div style="background:var(--amber-bg);border:1px solid rgba(245,166,35,0.3);border-radius:var(--r-sm);padding:10px 12px;font-size:12px;color:var(--amber);margin-bottom:18px">
+      ⚠ This cannot be undone. Make sure you've downloaded a backup first.
+    </div>
+    <div class="modal-btns">
+      <button class="btn" style="background:var(--surface2);border:1px solid var(--border2);color:var(--muted)" onclick="closeSeasonModal()">Cancel</button>
+      <button class="btn" style="flex:1;background:var(--purple-bg);border:1px solid rgba(167,139,250,0.3);color:var(--purple);padding:11px;font-weight:700" id="season-confirm-btn" onclick="confirmNewSeason()">Archive &amp; Start Fresh</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <header class="hdr">
@@ -172,6 +186,7 @@ tbody tr:hover td{background:var(--surface2);}
   </nav>
   <div class="hdr-actions">
     <div class="sync-dot" id="sync-dot" title="Sync status"></div>
+    <button class="hdr-btn" style="background:var(--purple-bg);border:1px solid rgba(167,139,250,0.3);color:var(--purple)" onclick="openNewSeason()">🏁 New Season</button>
     <button class="hdr-btn hdr-btn-import" onclick="document.getElementById('import-input').click()">⬆</button>
     <input type="file" id="import-input" accept=".xlsx" style="display:none" onchange="importBackup(event)">
     <button class="hdr-btn hdr-btn-export" onclick="exportBackup()">⬇ Backup</button>
@@ -209,8 +224,8 @@ tbody tr:hover td{background:var(--surface2);}
         </div>
       </div>
       <div class="form-row">
-        <div class="fg"><label>Quarter</label>
-          <select id="f-quarter">
+        <div class="fg"><label>Quarter <span id="q-weeks-info" style="font-weight:400;text-transform:none;font-size:10px;color:var(--muted)"></span></label>
+          <select id="f-quarter" onchange="onFormChange()">
             <option value="Q1">Quarter 1</option><option value="Q2">Quarter 2</option>
             <option value="Q3">Quarter 3</option><option value="Q4">Quarter 4</option>
           </select>
@@ -428,6 +443,7 @@ var bets=[], payments=[];
 var filterIdiot='All', filterResult='All', lbQ='all', wvQ='all';
 var pendingDeleteId=null, nextId=1000, nextPayId=5000;
 var pollTimer=null, wsRetries=0, lastMaxId=0, lastBetCount=0;
+var currentSeason=null; // null = load from DB
 
 // ─── SUPABASE ─────────────────────────────────────
 async function sbFetch(path, opts, timeoutMs) {
@@ -455,9 +471,17 @@ async function sbFetch(path, opts, timeoutMs) {
 }
 
 async function loadBets() {
-  var data = await sbFetch('/rest/v1/bets?select=*&order=created_at.asc');
+  var url = '/rest/v1/bets?select=*&order=created_at.asc';
+  // Only load non-archived bets for current season
+  url += '&archived=eq.false';
+  var data = await sbFetch(url);
   bets = (data||[]).map(normalise);
   nextId = bets.length ? Math.max.apply(null, bets.map(function(b){return b.id;}))+1 : 1000;
+  // Derive current season label from data
+  if(bets.length) {
+    var years = bets.map(function(b){ return b.week.substring(0,4); });
+    currentSeason = Math.max.apply(null, years.map(Number));
+  }
 }
 
 async function loadPayments() {
@@ -481,6 +505,7 @@ function normalise(r) {
     nobet: r.nobet===true||r.nobet==='true',
     joker: r.joker===true||r.joker==='true',
     boar:  r.boar===true||r.boar==='true',
+    archived: r.archived===true||r.archived==='true',
     comments:r.comments||''
   };
 }
@@ -644,6 +669,50 @@ function weekWagered(idiot, week, excId) {
 function weekIsJoker(idiot,week){ return bets.some(function(b){ return b.idiot===idiot&&b.week===week&&b.joker; }); }
 function jokerElsewhere(idiot,week){ return bets.some(function(b){ return b.idiot===idiot&&b.joker&&b.week!==week; }); }
 
+// ─── QUARTER WEEK HELPERS ─────────────────────────
+// Returns the first week punted in this quarter (any idiot), or null
+function quarterFirstWeek(quarter) {
+  var qBets = bets.filter(function(b){ return b.quarter===quarter; });
+  if(!qBets.length) return null;
+  var weeks = qBets.map(function(b){ return b.week; }).sort();
+  return weeks[0];
+}
+
+// Returns weeks remaining in this quarter (max 13 from first week)
+function quarterWeeksInfo(quarter) {
+  var first = quarterFirstWeek(quarter);
+  if(!first) return { used:0, remaining:13, weeks:[] };
+  var allWeeks = [];
+  bets.filter(function(b){ return b.quarter===quarter; }).forEach(function(b){
+    if(allWeeks.indexOf(b.week)<0) allWeeks.push(b.week);
+  });
+  allWeeks.sort();
+  var used = allWeeks.length;
+  // Max week = first + 12*7 days
+  var firstDate = new Date(first+'T12:00:00');
+  var maxDate = new Date(firstDate.getTime() + 12*7*24*60*60*1000);
+  return { used:used, remaining:13-used, maxDate:maxDate, firstWeek:first, weeks:allWeeks };
+}
+
+// Returns a warning string if the selected week seems wrong for the quarter
+function quarterDateWarning(quarter, week) {
+  if(!week) return null;
+  var info = quarterWeeksInfo(quarter);
+  if(info.used===0) return null; // first ever bet in this quarter — no restriction
+  // Check if week exceeds 13-week limit
+  if(info.maxDate) {
+    var wDate = new Date(week+'T12:00:00');
+    if(wDate > info.maxDate) {
+      return '⚠ This week is beyond the 13-week limit for '+quarter+' (started '+fmtDate(info.firstWeek)+').';
+    }
+  }
+  // Check if week predates first week of quarter
+  if(week < info.firstWeek) {
+    return '⚠ This week is before '+quarter+' started ('+fmtDate(info.firstWeek)+').';
+  }
+  return null;
+}
+
 // ─── FINE LOGIC ───────────────────────────────────
 function getBoarFineImpact(name) {
   var boarBets = bets.filter(function(b){ return b.boar===true&&b.idiot===name&&b.result!=='Pending'; });
@@ -718,8 +787,24 @@ function onFormChange() {
   calcPayout();
   var week = document.getElementById('f-week').value;
   var idiot = document.getElementById('f-idiot').value;
+  var quarter = document.getElementById('f-quarter').value;
   renderWeekSummary(week);
   updateJokerUI(idiot,week);
+  // Quarter weeks info
+  var qInfo = quarterWeeksInfo(quarter);
+  var qLabel = document.getElementById('q-weeks-info');
+  if(qInfo.used===0) {
+    qLabel.textContent='(not started)';
+    qLabel.style.color='var(--muted)';
+  } else {
+    var rem = qInfo.remaining;
+    qLabel.textContent='('+qInfo.used+'/13 weeks used, '+Math.max(0,rem)+' remaining)';
+    qLabel.style.color=rem<=2?'var(--red)':rem<=4?'var(--amber)':'var(--muted)';
+  }
+  // Quarter date warning
+  var qWarn = week ? quarterDateWarning(quarter, week) : null;
+  var fa = document.getElementById('form-alert');
+  fa.innerHTML=qWarn?'<div class="alert alert-warn" style="margin-bottom:8px">'+qWarn+'</div>':'';
 }
 
 function updateJokerUI(idiot,week) {
@@ -868,6 +953,46 @@ async function confirmDelete() {
   closeModal();
 }
 document.getElementById('confirm-modal').addEventListener('click',function(e){ if(e.target.id==='confirm-modal') closeModal(); });
+document.getElementById('season-modal').addEventListener('click',function(e){ if(e.target.id==='season-modal') closeSeasonModal(); });
+
+function openNewSeason() {
+  document.getElementById('season-count').textContent = bets.length+' bet'+(bets.length!==1?'s':'')+' and '+payments.length+' payment'+(payments.length!==1?'s':'');
+  document.getElementById('season-modal').classList.add('open');
+}
+function closeSeasonModal() { document.getElementById('season-modal').classList.remove('open'); }
+
+async function confirmNewSeason() {
+  var btn = document.getElementById('season-confirm-btn');
+  btn.disabled=true; btn.textContent='Archiving…';
+  try {
+    // Archive all current bets
+    if(bets.length) {
+      await sbFetch('/rest/v1/bets?archived=eq.false', {
+        method:'PATCH',
+        headers:{'Prefer':'return=minimal'},
+        body:JSON.stringify({archived:true})
+      });
+    }
+    // Archive all current payments
+    if(payments.length) {
+      await sbFetch('/rest/v1/payments?archived=eq.false', {
+        method:'PATCH',
+        headers:{'Prefer':'return=minimal'},
+        body:JSON.stringify({archived:true})
+      });
+    }
+    bets=[];
+    payments=[];
+    nextId=1000;
+    nextPayId=5000;
+    renderAll();
+    closeSeasonModal();
+    showToast('✓ New season started!',true);
+  } catch(e) {
+    showToast('Error: '+e.message,false);
+  }
+  btn.disabled=false; btn.textContent='Archive & Start Fresh';
+}
 
 async function updateResult(id,val) {
   var b = bets.find(function(b){ return b.id===id; });
@@ -1009,9 +1134,10 @@ function renderBets() {
     var io=filterIdiot==='All'||b.idiot===filterIdiot;
     var ro;
     if(filterResult==='All') ro=true;
-    else if(filterResult==='NoBet') ro=b.nobet;
-    else if(filterResult==='Boar') ro=b.boar;
-    else ro=!b.nobet&&!b.boar&&b.result===filterResult;
+    else if(filterResult==='NoBet') ro=b.nobet===true;
+    else if(filterResult==='Boar') ro=b.boar===true;
+    else if(filterResult==='Pending') ro=!b.nobet&&b.result==='Pending'; // includes boar pending
+    else ro=!b.nobet&&b.result===filterResult;
     return io&&ro;
   }).sort(function(a,b){ return b.week>a.week?1:b.week<a.week?-1:a.idiot>b.idiot?1:-1; });
 
