@@ -144,6 +144,8 @@ tbody tr:hover td{background:var(--surface2);}
 .msg-err{color:var(--red);font-size:13px;font-weight:600;}
 .show-mobile{display:block;}.hide-mobile{display:none;}
 @media(min-width:700px){.show-mobile{display:none!important;}.hide-mobile{display:block!important;}}
+.desktop-only{display:none;}
+@media(min-width:700px){.desktop-only{display:flex!important;}}
 </style>
 </head>
 <body>
@@ -189,10 +191,12 @@ tbody tr:hover td{background:var(--surface2);}
   </nav>
   <div class="hdr-actions">
     <div class="sync-dot" id="sync-dot" title="Sync status"></div>
-    <button class="hdr-btn" style="background:var(--purple-bg);border:1px solid rgba(167,139,250,0.3);color:var(--purple)" onclick="openNewSeason()">🏁 New Season</button>
-    <button class="hdr-btn hdr-btn-import" onclick="document.getElementById('import-input').click()">⬆</button>
-    <input type="file" id="import-input" accept=".xlsx" style="display:none" onchange="importBackup(event)">
-    <button class="hdr-btn hdr-btn-export" onclick="exportBackup()">⬇ Backup</button>
+    <div class="desktop-only" style="display:flex;gap:6px">
+      <button class="hdr-btn" style="background:var(--purple-bg);border:1px solid rgba(167,139,250,0.3);color:var(--purple)" onclick="openNewSeason()">🏁 New Season</button>
+      <button class="hdr-btn hdr-btn-import" onclick="document.getElementById('import-input').click()">⬆</button>
+      <input type="file" id="import-input" accept=".xlsx" style="display:none" onchange="importBackup(event)">
+      <button class="hdr-btn hdr-btn-export" onclick="exportBackup()">⬇ Backup</button>
+    </div>
   </div>
 </header>
 
