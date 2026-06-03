@@ -521,13 +521,13 @@ const SUPABASE_URL = 'https://iaxdnwtevkadkyhxiybf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheGRud3RldmthZGt5aHhpeWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjUwMzksImV4cCI6MjA5NjAwMTAzOX0._QjzaPh23QrmBBcHLggs-ve4C09QKVpMzisq5TK7eeU';
 const HEADERS = {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
 const DEFAULT_IDIOTS = ['Brent','Ghoms','Jason','Porpoise','Rob','Scootsie','Shahid','Wild Boar'];
-const DEFAULT_TEAMS  = ['NIO','NIO','FFS','FFS','FFS','NIO','FFS','NIO']; // default team per slot
+const DEFAULT_TEAMS  = ['NIO','NIO','FFS','FFS','FFS','NIO','FFS','NIO'];
 const NAMES_KEY = 'idiots_names_v1';
 const TEAMS_KEY = 'idiots_teams_v1';
 
 // ─── NAME & TEAM MANAGEMENT ───────────────────────
 var IDIOTS = loadNames();
-var IDIOT_TEAMS = loadTeams(); // parallel array — team for each idiot slot
+var IDIOT_TEAMS = loadTeamsLocal(); // start with local, overwritten by DB on init
 
 function loadNames() {
   try {
@@ -540,7 +540,7 @@ function loadNames() {
   return DEFAULT_IDIOTS.slice();
 }
 
-function loadTeams() {
+function loadTeamsLocal() {
   try {
     var stored = localStorage.getItem(TEAMS_KEY);
     if(stored) {
@@ -559,10 +559,35 @@ function saveTeamsToStorage(teams) {
   try { localStorage.setItem(TEAMS_KEY, JSON.stringify(teams)); } catch(e) {}
 }
 
+// Load teams from Supabase settings table — shared across all devices
+async function loadTeamsFromDB() {
+  try {
+    var data = await sbFetch('/rest/v1/settings?key=eq.idiot_teams&select=value');
+    if(data && data.length && data[0].value) {
+      var parsed = JSON.parse(data[0].value);
+      if(Array.isArray(parsed) && parsed.length === 8) {
+        IDIOT_TEAMS = parsed;
+        saveTeamsToStorage(IDIOT_TEAMS); // cache locally too
+        return;
+      }
+    }
+  } catch(e) { /* fall back to local */ }
+}
+
+// Save teams to Supabase settings table (upsert)
+async function saveTeamsToDB(teams) {
+  await sbFetch('/rest/v1/settings?on_conflict=key', {
+    method: 'POST',
+    headers: {'Prefer': 'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify({key: 'idiot_teams', value: JSON.stringify(teams), updated_at: new Date().toISOString()})
+  });
+  saveTeamsToStorage(teams); // also cache locally
+}
+
 // Returns the team for a given idiot name
 function getIdiotTeam(name) {
   var idx = IDIOTS.indexOf(name);
-  return idx >= 0 ? IDIOT_TEAMS[idx] : '';
+  return idx >= 0 ? (IDIOT_TEAMS[idx] || 'NIO') : 'NIO';
 }
 
 function renderNameEditor() {
@@ -636,7 +661,7 @@ async function saveNames() {
     IDIOTS = newNames;
     IDIOT_TEAMS = newTeams;
     saveNamesToStorage(IDIOTS);
-    saveTeamsToStorage(IDIOT_TEAMS);
+    await saveTeamsToDB(IDIOT_TEAMS);
 
     if(changes.length) {
       await loadBets();
@@ -674,7 +699,7 @@ async function resetNames() {
     IDIOTS = DEFAULT_IDIOTS.slice();
     IDIOT_TEAMS = DEFAULT_TEAMS.slice();
     saveNamesToStorage(IDIOTS);
-    saveTeamsToStorage(IDIOT_TEAMS);
+    await saveTeamsToDB(IDIOT_TEAMS);
     if(changes.length){ await loadBets(); await loadPayments(); }
     rebuildSelects();
     renderAll();
@@ -1939,7 +1964,8 @@ async function init(attempt) {
   loadingEl.innerHTML='<div class="spinner"></div><div style="color:var(--muted);font-size:13px;text-align:center">'+(attempt===1?'Connecting to database…':'Retrying… ('+attempt+'/'+maxAttempts+')')+'</div>';
   try {
     await loadBets();
-    loadPayments(); // non-blocking
+    loadPayments();   // non-blocking
+    loadTeamsFromDB().then(function(){ renderLeaderboard(); }); // update team comparison once loaded
   } catch(e) {
     if(attempt<maxAttempts) {
       loadingEl.innerHTML='<div class="spinner"></div><div style="color:var(--muted);font-size:13px;text-align:center">Waking database…<br><span style="font-size:11px;opacity:0.6">Retrying in 3s</span></div>';
