@@ -478,7 +478,9 @@ function normalise(r) {
     wager:parseFloat(r.wager)||0, odds:parseFloat(r.odds)||0,
     payout:parseFloat(r.payout)||0, pl:parseFloat(r.pl)||0,
     result:r.result||'Pending',
-    nobet:!!r.nobet, joker:!!r.joker, boar:!!r.boar,
+    nobet: r.nobet===true||r.nobet==='true',
+    joker: r.joker===true||r.joker==='true',
+    boar:  r.boar===true||r.boar==='true',
     comments:r.comments||''
   };
 }
@@ -644,7 +646,7 @@ function jokerElsewhere(idiot,week){ return bets.some(function(b){ return b.idio
 
 // ─── FINE LOGIC ───────────────────────────────────
 function getBoarFineImpact(name) {
-  var boarBets = bets.filter(function(b){ return b.boar&&b.idiot===name&&b.result!=='Pending'; });
+  var boarBets = bets.filter(function(b){ return b.boar===true&&b.idiot===name&&b.result!=='Pending'; });
   var impact = 0;
   boarBets.forEach(function(b){
     if(b.result==='Loss') impact += b.wager;
@@ -1135,10 +1137,19 @@ function renderWeekly() {
         }
         return '<td style="text-align:center">'+cellHtml+'</td>';
       }).join('');
-      var qpl=qb.filter(function(b){ return b.idiot===name&&b.result!=='Pending'&&!b.nobet; }).reduce(function(s,b){ return s+b.pl; },0)
-              +allQb.filter(function(b){ return b.idiot===name&&b.nobet; }).length*NOBET_PL;
+      // Q P/L includes normal bets + nobet penalty + boar fine impact
+      var qNormal=allQb.filter(function(b){ return b.idiot===name&&b.result!=='Pending'&&!b.nobet&&!b.boar; });
+      var qNobet=allQb.filter(function(b){ return b.idiot===name&&b.nobet; });
+      var qBoar=allQb.filter(function(b){ return b.idiot===name&&b.boar===true; });
+      var qpl=qNormal.reduce(function(s,b){ return s+b.pl; },0)
+             +qNobet.length*NOBET_PL;
+      // Boar fine impact in parentheses separately so it's clear
+      var boarImpactQ=qBoar.filter(function(b){ return b.result!=='Pending'; }).reduce(function(s,b){
+        return s+(b.result==='Win'?-b.pl:b.wager); // Win reduces fines, Loss adds
+      },0);
       var hasAny=allQb.some(function(b){ return b.idiot===name; });
-      return '<tr><td style="font-weight:700;white-space:nowrap">'+name+'</td>'+cells+'<td style="text-align:right">'+(hasAny?fmtPL(qpl,true):'<span style="color:var(--border2)">—</span>')+'</td></tr>';
+      var qplCell=hasAny?fmtPL(qpl,true)+(boarImpactQ!==0?'<div style="font-size:10px;color:var(--teal)">🐗 '+(boarImpactQ>0?'+':'')+'$'+boarImpactQ.toFixed(2)+' fines</div>':''):'<span style="color:var(--border2)">—</span>';
+      return '<tr><td style="font-weight:700;white-space:nowrap">'+name+'</td>'+cells+'<td style="text-align:right">'+qplCell+'</td></tr>';
     }).join('');
 
     html+='<div class="wk-section"><div class="wk-title">'+q+'</div>'
@@ -1250,7 +1261,7 @@ function renderFines() {
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:700;min-width:90px">'+name+'</span>'+(jb?'<span class="joker-tag">★ Joker</span><span style="color:var(--muted)">'+fmtDate(jb.week)+'</span>':'<span style="color:var(--muted);font-size:12px">not used</span>')+'</div>';
   }).join('');
 
-  var boarBets=bets.filter(function(b){ return b.boar; }).sort(function(a,b){ return b.week>a.week?1:-1; });
+  var boarBets=bets.filter(function(b){ return b.boar===true; }).sort(function(a,b){ return b.week>a.week?1:-1; });
   document.getElementById('boar-fines-list').innerHTML=!boarBets.length?'<div class="empty">No boar punts yet</div>':boarBets.map(function(b){
     var isPending=b.result==='Pending';
     var impact=isPending?'—':b.result==='Win'?'<span style="color:var(--teal)">−$'+b.pl.toFixed(2)+' off fines</span>':'<span style="color:var(--red)">+$'+b.wager.toFixed(2)+' to fines</span>';
