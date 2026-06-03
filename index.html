@@ -510,6 +510,29 @@ tbody tr:hover td{background:var(--surface2);}
 // ══════════════════════════════════════════════
 const SUPABASE_URL = 'https://iaxdnwtevkadkyhxiybf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheGRud3RldmthZGt5aHhpeWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjUwMzksImV4cCI6MjA5NjAwMTAzOX0._QjzaPh23QrmBBcHLggs-ve4C09QKVpMzisq5TK7eeU';
+
+// Global error catcher — shows any uncaught JS error on screen instead of silently freezing
+window.onerror = function(msg, src, line, col, err){
+  const el = document.getElementById('loading');
+  if(el && el.style.display !== 'none'){
+    el.innerHTML=`<div style="color:#f06060;text-align:center;padding:20px;max-width:360px">
+      <b style="font-size:15px">JavaScript Error</b>
+      <pre style="text-align:left;font-size:11px;margin-top:8px;background:#1a1a1a;padding:10px;border-radius:4px;white-space:pre-wrap;color:#eee">${msg}\nLine ${line}:${col}\n${src}\n\n${err&&err.stack||''}</pre>
+      <button onclick="location.reload()" style="background:#e8c547;color:#111;border:none;border-radius:6px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px">Reload</button>
+    </div>`;
+  }
+  return false;
+};
+window.onunhandledrejection = function(e){
+  const el = document.getElementById('loading');
+  if(el && el.style.display !== 'none'){
+    el.innerHTML=`<div style="color:#f06060;text-align:center;padding:20px;max-width:360px">
+      <b style="font-size:15px">Unhandled Promise Error</b>
+      <pre style="text-align:left;font-size:11px;margin-top:8px;background:#1a1a1a;padding:10px;border-radius:4px;white-space:pre-wrap;color:#eee">${e.reason}</pre>
+      <button onclick="location.reload()" style="background:#e8c547;color:#111;border:none;border-radius:6px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px">Reload</button>
+    </div>`;
+  }
+};
 const HEADERS = { 'Content-Type':'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY };
 
 const IDIOTS = ['Brent','Ghoms','Jason','Porpoise','Rob','Scootsie','Shahid','Wild Boar'];
@@ -1776,8 +1799,18 @@ async function init(attempt=1){
   }
 
   // Success — show the app
-  buildWeekSelect();
-  renderAll();
+  try{
+    buildWeekSelect();
+  }catch(e){
+    loadingEl.innerHTML=`<div style="color:var(--red);text-align:center;padding:20px;max-width:340px"><b>Error in buildWeekSelect</b><br><pre style="text-align:left;font-size:11px;margin-top:8px;background:#1a1a1a;padding:8px;border-radius:4px;white-space:pre-wrap">${e.message}\n${e.stack||''}</pre><button onclick="init(1)" style="background:#e8c547;color:#111;border:none;border-radius:6px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px">Retry</button></div>`;
+    return;
+  }
+  try{
+    renderAll();
+  }catch(e){
+    loadingEl.innerHTML=`<div style="color:var(--red);text-align:center;padding:20px;max-width:340px"><b>Error in renderAll</b><br><pre style="text-align:left;font-size:11px;margin-top:8px;background:#1a1a1a;padding:8px;border-radius:4px;white-space:pre-wrap">${e.message}\n${e.stack||''}</pre><button onclick="init(1)" style="background:#e8c547;color:#111;border:none;border-radius:6px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px">Retry</button></div>`;
+    return;
+  }
   loadingEl.style.display='none';
 
   lastMaxId = bets.length ? Math.max(...bets.map(b=>b.id)) : 0;
