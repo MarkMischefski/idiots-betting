@@ -375,7 +375,7 @@ tbody tr:hover td{background:var(--surface2);}
     <div class="rule">No bet placed → <strong>$40 fine + −$30 P/L</strong></div>
     <div class="rule">Any punter returns ≥ $100 → <strong>ALL others pay 10% each</strong></div>
     <div class="rule">Max $30/week · one joker week per year at $60</div>
-    <div class="rule">Exceed weekly limit → <strong>$50 fine</strong></div>
+    <div class="rule">Exceed weekly limit → <strong>overage + $50 fine</strong> (e.g. $50 wagered = $20 over + $50 = $70 fine)</div>
     <div class="rule">🐗 Boar Punt — no limit · Win reduces fines · Loss adds to fines</div>
     <div class="rule">Fines account: <strong>12-3089-0114330-02</strong></div>
   </div>
@@ -1045,7 +1045,8 @@ function getFineData() {
       var totalWager = wb.filter(function(b){ return !b.nobet&&!b.boar; }).reduce(function(s,b){ return s+b.wager; },0);
       var isJoker = weekIsJoker(name,w);
       var limit = isJoker?JOKER_LIMIT:NORMAL_LIMIT;
-      var exceedFine = totalWager>limit?EXCEED_FINE:0;
+      var exceedAmount = totalWager > limit ? parseFloat((totalWager - limit).toFixed(2)) : 0;
+      var exceedFine = exceedAmount > 0 ? parseFloat((exceedAmount + EXCEED_FINE).toFixed(2)) : 0;
       var totalReturn = settled.filter(function(b){ return b.result==='Win'; }).reduce(function(s,b){ return s+b.payout; },0);
       var profit = settled.reduce(function(s,b){ return s+b.pl; },0)+(hasNobet?NOBET_PL:0);
       var baseFine = 0;
@@ -1058,7 +1059,7 @@ function getFineData() {
       bigWins.forEach(function(b){ if(b.idiot!==name) bigwinFine=parseFloat((bigwinFine+b.payout*0.1).toFixed(2)); });
       if(wb.length>0||bigwinFine>0) {
         rows.push({week:w,idiot:name,profit:profit,totalReturn:totalReturn,
-          baseFine:baseFine,exceedFine:exceedFine,bigwinFine:bigwinFine,
+          baseFine:baseFine,exceedFine:exceedFine,exceedAmount:exceedAmount,bigwinFine:bigwinFine,
           totalFine:baseFine+exceedFine+bigwinFine,isJoker:isJoker,
           totalWager:totalWager,limit:limit,hasNobet:hasNobet,hadEntry:wb.length>0});
       }
@@ -1157,8 +1158,11 @@ function calcPayout() {
     document.getElementById('budget-label').textContent=(idiot&&week)?'$'+already.toFixed(0)+'/$'+limit+' used':'';
     document.getElementById('f-wager').className=total>limit?'err':total>limit*0.8?'warn':'';
     var ba = document.getElementById('budget-alert');
-    if(wager>0&&idiot&&week&&total>limit) ba.innerHTML='<div class="alert alert-err">⚠ $'+total.toFixed(2)+' total — exceeds $'+limit+' limit. <strong>$50 fine</strong> applies.</div>';
-    else if(wager>0&&idiot&&week&&total>limit*0.8&&total<=limit) ba.innerHTML='<div class="alert alert-warn">⚠ $'+(limit-total).toFixed(2)+' remaining this week.</div>';
+    if(wager>0&&idiot&&week&&total>limit) {
+      var over=parseFloat((total-limit).toFixed(2));
+      var fine=parseFloat((over+EXCEED_FINE).toFixed(2));
+      ba.innerHTML='<div class="alert alert-err">⚠ $'+total.toFixed(2)+' total — $'+over.toFixed(2)+' over limit. Fine: $'+over.toFixed(2)+' + $'+EXCEED_FINE+' = <strong>$'+fine.toFixed(2)+'</strong></div>';
+    } else if(wager>0&&idiot&&week&&total>limit*0.8&&total<=limit) ba.innerHTML='<div class="alert alert-warn">⚠ $'+(limit-total).toFixed(2)+' remaining this week.</div>';
     else ba.innerHTML='';
     var fa = document.getElementById('form-alert');
     fa.innerHTML=(useJoker&&idiot&&jokerElsewhere(idiot,week))?'<div class="alert alert-err">❌ '+idiot+' already used joker this season.</div>':'';
@@ -1501,7 +1505,7 @@ function renderWeekSummary(week) {
       +'<div style="width:80px;flex-shrink:0"><div style="font-size:10px;color:'+(over?'var(--red)':'var(--muted)')+'">$'+d.wagered+'/$'+limit+'</div>'
       +'<div class="budget-bar-wrap"><div class="budget-bar-fill" style="width:'+pct+'%;background:'+bc+'"></div></div></div>'
       +'<span style="flex:1">'+status+'</span>'
-      +(over?'<span class="badge b-fine">$50 fine</span>':'')+'</div>';
+      +(over?'<span class="badge b-fine">$'+parseFloat((d.wagered-limit+EXCEED_FINE).toFixed(2))+' fine</span>':'')+'</div>';
   });
   document.getElementById('ws-body').innerHTML=html;
 }
@@ -1837,7 +1841,7 @@ function renderFines() {
       if(r.totalFine===0) return r.hadEntry?'<td style="text-align:center;color:var(--green)">✓</td>':'<td style="text-align:center;color:var(--muted)">—</td>';
       var parts=[];
       if(r.baseFine) parts.push(r.hasNobet?'No-bet: $'+r.baseFine:'Loss: $'+r.baseFine);
-      if(r.exceedFine) parts.push('Over limit: $'+r.exceedFine);
+      if(r.exceedFine) parts.push('Over limit: $'+r.exceedAmount.toFixed(2)+' over + $50 penalty = $'+r.exceedFine.toFixed(2));
       if(r.bigwinFine) parts.push('Big win: $'+r.bigwinFine.toFixed(2));
       var note=!r.hadEntry&&r.bigwinFine>0?'<div style="font-size:9px;color:var(--muted)">no bet</div>':'';
       return '<td style="text-align:center" title="'+parts.join(' | ')+'"><span class="badge b-fine">$'+r.totalFine.toFixed(0)+'</span>'+note+'</td>';
