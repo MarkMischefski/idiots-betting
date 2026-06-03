@@ -85,6 +85,9 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .b-fine{background:var(--amber-bg);color:var(--amber);}
 .b-boar{background:var(--teal-bg);color:var(--teal);}
 .b-paid{background:var(--green-bg);color:var(--green);}
+.b-meddle{background:var(--purple-bg);color:var(--purple);}
+.b-meddle-pos{background:var(--red-bg);color:var(--red);}
+.b-meddle-neg{background:var(--green-bg);color:var(--green);}
 .joker-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;background:rgba(232,197,71,0.2);color:var(--accent);margin-left:3px;}
 .team-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;}
 .t-nio{background:rgba(100,150,255,0.12);color:#8aabff;}
@@ -397,7 +400,15 @@ tbody tr:hover td{background:var(--surface2);}
 
 <!-- PAYMENTS -->
 <div id="page-payments" class="page">
-  <div class="card" style="margin-bottom:12px">
+
+  <!-- Tab switcher -->
+  <div class="chips" style="margin-bottom:14px">
+    <button class="chip active" id="pay-tab-pay" onclick="setPayTab('payment')">💳 Record payment</button>
+    <button class="chip" id="pay-tab-meddle" onclick="setPayTab('meddle')">🔧 Meddle with fines</button>
+  </div>
+
+  <!-- Payment form -->
+  <div id="pay-form-payment" class="card" style="margin-bottom:12px">
     <div class="card-title">Record a fine payment</div>
     <div class="form-stack">
       <div class="form-row">
@@ -420,12 +431,55 @@ tbody tr:hover td{background:var(--surface2);}
       <div id="pay-msg" style="text-align:center;min-height:18px"></div>
     </div>
   </div>
+
+  <!-- Meddle form -->
+  <div id="pay-form-meddle" class="card" style="margin-bottom:12px;display:none">
+    <div class="card-title">🔧 Meddle with fines</div>
+    <div style="background:var(--purple-bg);border:1px solid rgba(167,139,250,0.25);border-radius:var(--r-sm);padding:10px 12px;font-size:12px;color:var(--purple);margin-bottom:14px">
+      Add or subtract any amount from an idiot's fine balance. Positive = adds to fines owed. Negative = reduces fines owed. <strong>Comment required.</strong>
+    </div>
+    <div class="form-stack">
+      <div class="form-row">
+        <div class="fg"><label>Idiot</label>
+          <select id="meddle-idiot" onchange="updateMeddlePreview()">
+            <option value="">Select…</option>
+            <option>Brent</option><option>Ghoms</option><option>Jason</option>
+            <option>Porpoise</option><option>Rob</option><option>Scootsie</option>
+            <option>Shahid</option><option>Wild Boar</option>
+          </select>
+        </div>
+        <div class="fg"><label>Amount ($) — negative to reduce</label>
+          <input type="number" id="meddle-amount" placeholder="-20 or +50" step="0.01" inputmode="decimal" oninput="updateMeddlePreview()">
+        </div>
+      </div>
+      <div class="fg"><label>Comment <span style="color:var(--red)">*required</span></label>
+        <input type="text" id="meddle-comment" placeholder="e.g. Penalty for showing up late to presentation">
+      </div>
+      <div class="payout-box" id="meddle-preview" style="display:none">
+        <div class="payout-box-item"><span>Impact</span><strong id="meddle-impact">—</strong></div>
+        <div class="payout-box-item"><span>Idiot</span><strong id="meddle-who" style="color:var(--text)">—</strong></div>
+        <div class="payout-box-item"><span>Current balance</span><strong id="meddle-current">—</strong></div>
+      </div>
+      <div id="meddle-alert"></div>
+      <button class="btn" style="background:var(--purple-bg);border:1px solid rgba(167,139,250,0.3);color:var(--purple);font-weight:700" id="meddle-btn" onclick="addMeddle()">Apply meddle</button>
+      <div id="meddle-msg" style="text-align:center;min-height:18px"></div>
+    </div>
+  </div>
+
+  <!-- Balances -->
   <div class="card" style="margin-bottom:12px">
     <div class="card-title">Fine balances</div>
     <div id="pay-balances"></div>
   </div>
+
+  <!-- History -->
   <div class="card">
-    <div class="card-title">Payment history</div>
+    <div class="card-title">Payment &amp; meddle history</div>
+    <div class="chips" style="margin-bottom:10px">
+      <button class="chip active" id="hist-all" onclick="setHistFilter(this,'all')">All</button>
+      <button class="chip" id="hist-pay" onclick="setHistFilter(this,'payment')">Payments</button>
+      <button class="chip" id="hist-med" onclick="setHistFilter(this,'meddle')">Meddles</button>
+    </div>
     <div id="pay-history"></div>
   </div>
 </div>
@@ -440,7 +494,7 @@ const NORMAL_LIMIT=30, JOKER_LIMIT=60, EXCEED_FINE=50, NOBET_FINE=40, NOBET_PL=-
 
 // ─── STATE ────────────────────────────────────────
 var bets=[], payments=[];
-var filterIdiot='All', filterResult='All', lbQ='all', wvQ='all';
+var filterIdiot='All', filterResult='All', lbQ='all', wvQ='all', histFilter='all';
 var pendingDeleteId=null, nextId=1000, nextPayId=5000;
 var pollTimer=null, wsRetries=0, lastMaxId=0, lastBetCount=0;
 var currentSeason=null; // null = load from DB
@@ -764,9 +818,14 @@ function getBalance(name) {
   var fd = getFineData();
   var grossFines = fd.rows.filter(function(r){ return r.idiot===name; }).reduce(function(s,r){ return s+r.totalFine; },0);
   var boarImpact = getBoarFineImpact(name);
-  var paid = payments.filter(function(p){ return p.idiot===name; }).reduce(function(s,p){ return s+parseFloat(p.amount); },0);
+  // Payments reduce balance; meddles: positive = adds to fines (negative credit), negative = reduces fines (positive credit)
+  var paid = payments.filter(function(p){ return p.idiot===name&&(!p.type||p.type==='payment'); })
+                     .reduce(function(s,p){ return s+parseFloat(p.amount); },0);
+  var meddleNet = payments.filter(function(p){ return p.idiot===name&&p.type==='meddle'; })
+                          .reduce(function(s,p){ return s+parseFloat(p.amount); },0);
   var afterBoar = Math.max(0, grossFines+boarImpact);
-  return parseFloat((afterBoar-paid).toFixed(2));
+  // meddleNet positive = more fines, negative = fewer fines; paid = reduces balance
+  return parseFloat((afterBoar + meddleNet - paid).toFixed(2));
 }
 
 // ─── FORM ─────────────────────────────────────────
@@ -1006,27 +1065,95 @@ async function updateResult(id,val) {
   } catch(e) { showToast('Error: '+e.message,false); }
 }
 
-// ─── PAYMENTS ─────────────────────────────────────
+// ─── PAYMENTS & MEDDLE ────────────────────────────
+function setPayTab(tab) {
+  document.getElementById('pay-form-payment').style.display = tab==='payment'?'':'none';
+  document.getElementById('pay-form-meddle').style.display  = tab==='meddle'?'':'none';
+  document.getElementById('pay-tab-pay').classList.toggle('active', tab==='payment');
+  document.getElementById('pay-tab-meddle').classList.toggle('active', tab==='meddle');
+}
+
+function setHistFilter(el,val) {
+  histFilter=val;
+  ['hist-all','hist-pay','hist-med'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
+  el.classList.add('active');
+  renderPayments();
+}
+
+// Live meddle preview
+function updateMeddlePreview() {
+  var idiot = document.getElementById('meddle-idiot').value;
+  var amount = parseFloat(document.getElementById('meddle-amount').value)||0;
+  var preview = document.getElementById('meddle-preview');
+  if(!idiot||!amount){ preview.style.display='none'; return; }
+  preview.style.display='grid';
+  var current = getBalance(idiot);
+  var after = current + amount; // positive meddle adds to fines
+  document.getElementById('meddle-who').textContent = idiot;
+  var impEl = document.getElementById('meddle-impact');
+  if(amount>0){
+    impEl.innerHTML='<span style="color:var(--red)">+$'+amount.toFixed(2)+' fines</span>';
+  } else {
+    impEl.innerHTML='<span style="color:var(--green)">−$'+Math.abs(amount).toFixed(2)+' fines</span>';
+  }
+  document.getElementById('meddle-current').innerHTML =
+    '<span style="color:'+(current>0?'var(--red)':current<0?'var(--green)':'var(--muted)')+'">'+
+    (current>0?'Owes $':current<0?'Credit $':'Settled')+Math.abs(current).toFixed(2)+'</span>';
+}
+
 async function addPayment() {
   var idiot = document.getElementById('pay-idiot').value;
   var amount = parseFloat(document.getElementById('pay-amount').value);
   var note = document.getElementById('pay-note').value.trim();
   var msg = document.getElementById('pay-msg');
   var btn = document.getElementById('pay-btn');
-  if(!idiot||!amount||amount<=0){ msg.className='msg-err'; msg.textContent='Select idiot and enter amount.'; return; }
+  if(!idiot||!amount||amount<=0){ msg.className='msg-err'; msg.textContent='Select idiot and enter a positive amount.'; return; }
   btn.disabled=true; btn.textContent='Saving…';
   try {
-    var p={id:nextPayId++,idiot:idiot,amount:parseFloat(amount.toFixed(2)),note:note,created_at:new Date().toISOString()};
+    var p={id:nextPayId++,idiot:idiot,amount:parseFloat(amount.toFixed(2)),
+           note:note,type:'payment',archived:false,created_at:new Date().toISOString()};
     await insertPayment(p);
     payments.push(p);
     document.getElementById('pay-idiot').value='';
     document.getElementById('pay-amount').value='';
     document.getElementById('pay-note').value='';
-    msg.className='msg-ok'; msg.textContent='✓ $'+amount.toFixed(2)+' recorded for '+idiot;
+    msg.className='msg-ok'; msg.textContent='✓ $'+amount.toFixed(2)+' payment recorded for '+idiot;
     setTimeout(function(){ msg.textContent=''; },3000);
     renderAll();
   } catch(e) { msg.className='msg-err'; msg.textContent='Error: '+e.message; }
   btn.disabled=false; btn.textContent='Record payment';
+}
+
+async function addMeddle() {
+  var idiot   = document.getElementById('meddle-idiot').value;
+  var amount  = parseFloat(document.getElementById('meddle-amount').value);
+  var comment = document.getElementById('meddle-comment').value.trim();
+  var msg = document.getElementById('meddle-msg');
+  var btn = document.getElementById('meddle-btn');
+  var alert = document.getElementById('meddle-alert');
+  alert.innerHTML='';
+  if(!idiot){ msg.className='msg-err'; msg.textContent='Select an idiot.'; return; }
+  if(!amount||amount===0){ msg.className='msg-err'; msg.textContent='Enter an amount (positive or negative).'; return; }
+  if(!comment){ alert.innerHTML='<div class="alert alert-err">A comment is required for meddle entries.</div>'; return; }
+  btn.disabled=true; btn.textContent='Applying…';
+  try {
+    // Store as negative amount to reduce balance (meddle is an adjustment, not a payment)
+    // Positive meddle amount = ADDS to fines = stored as negative payment equivalent
+    // We store the raw amount and handle direction in getBalance
+    var p={id:nextPayId++,idiot:idiot,amount:parseFloat(amount.toFixed(2)),
+           note:comment,type:'meddle',archived:false,created_at:new Date().toISOString()};
+    await insertPayment(p);
+    payments.push(p);
+    document.getElementById('meddle-idiot').value='';
+    document.getElementById('meddle-amount').value='';
+    document.getElementById('meddle-comment').value='';
+    document.getElementById('meddle-preview').style.display='none';
+    var dir = amount>0 ? '+$'+amount.toFixed(2)+' added to fines' : '$'+Math.abs(amount).toFixed(2)+' removed from fines';
+    msg.className='msg-ok'; msg.textContent='✓ Meddled: '+dir+' for '+idiot;
+    setTimeout(function(){ msg.textContent=''; },3500);
+    renderAll();
+  } catch(e) { msg.className='msg-err'; msg.textContent='Error: '+e.message; }
+  btn.disabled=false; btn.textContent='Apply meddle';
 }
 
 async function deletePayment(id) {
@@ -1034,7 +1161,7 @@ async function deletePayment(id) {
     await deletePaymentInDB(id);
     payments = payments.filter(function(p){ return p.id!==id; });
     renderAll();
-    showToast('✓ Payment removed',true);
+    showToast('✓ Entry removed',true);
   } catch(e) { showToast('Error: '+e.message,false); }
 }
 
@@ -1397,26 +1524,50 @@ function renderFines() {
 
 // ─── PAYMENTS ─────────────────────────────────────
 function renderPayments() {
+  var fd=getFineData();
+  // Balances
   var balances=IDIOTS.map(function(name){
-    var fd=getFineData();
     var gross=fd.rows.filter(function(r){ return r.idiot===name; }).reduce(function(s,r){ return s+r.totalFine; },0);
     var boar=getBoarFineImpact(name);
-    var paid=payments.filter(function(p){ return p.idiot===name; }).reduce(function(s,p){ return s+parseFloat(p.amount); },0);
-    var balance=parseFloat((Math.max(0,gross+boar)-paid).toFixed(2));
-    var boarStr=boar!==0?'<span style="color:'+(boar>0?'var(--red)':'var(--teal)')+';font-size:11px;margin-left:6px">'+(boar>0?'+':'')+'$'+boar.toFixed(2)+' boar</span>':'';
-    var paidStr=paid>0?'<span style="color:var(--green);font-size:11px;margin-left:6px">−$'+paid.toFixed(2)+' paid</span>':'';
+    var paid=payments.filter(function(p){ return p.idiot===name&&(!p.type||p.type==='payment'); }).reduce(function(s,p){ return s+parseFloat(p.amount); },0);
+    var meddled=payments.filter(function(p){ return p.idiot===name&&p.type==='meddle'; }).reduce(function(s,p){ return s+parseFloat(p.amount); },0);
+    var balance=getBalance(name);
+    var boarStr=boar!==0?'<span style="color:'+(boar>0?'var(--red)':'var(--teal)')+';font-size:11px;margin-left:4px">'+(boar>0?'+':'')+'$'+boar.toFixed(2)+' boar</span>':'';
+    var paidStr=paid>0?'<span style="color:var(--green);font-size:11px;margin-left:4px">−$'+paid.toFixed(2)+' paid</span>':'';
+    var meddleStr=meddled!==0?'<span style="color:var(--purple);font-size:11px;margin-left:4px">🔧'+(meddled>0?'+':'')+'$'+meddled.toFixed(2)+'</span>':'';
     var balCol=balance>0?'var(--red)':balance<0?'var(--green)':'var(--muted)';
-    var balStr=balance>0?'Owes $'+balance.toFixed(2):balance<0?'Overpaid $'+Math.abs(balance).toFixed(2):'Settled ✓';
-    return {name:name,balance:balance,html:'<div style="display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);flex-wrap:wrap"><span style="font-weight:700;min-width:90px;font-size:14px">'+name+'</span><span style="color:var(--muted);font-size:12px">Fines: $'+gross.toFixed(2)+boarStr+paidStr+'</span><span style="margin-left:auto;font-weight:700;font-size:15px;color:'+balCol+'">'+balStr+'</span></div>'};
+    var balStr=balance>0?'Owes $'+balance.toFixed(2):balance<0?'Credit $'+Math.abs(balance).toFixed(2):'Settled ✓';
+    return {name:name,balance:balance,
+      html:'<div style="display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">'
+        +'<span style="font-weight:700;min-width:90px;font-size:14px">'+name+'</span>'
+        +'<span style="color:var(--muted);font-size:11px">$'+gross.toFixed(2)+boarStr+meddleStr+paidStr+'</span>'
+        +'<span style="margin-left:auto;font-weight:700;font-size:15px;color:'+balCol+'">'+balStr+'</span></div>'};
   }).sort(function(a,b){ return b.balance-a.balance; });
   document.getElementById('pay-balances').innerHTML=balances.map(function(b){ return b.html; }).join('');
 
-  var sorted=payments.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
-  document.getElementById('pay-history').innerHTML=!sorted.length?'<div class="empty">No payments yet</div>':sorted.map(function(p){
+  // History with filter
+  var allHist=payments.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+  var filtered=histFilter==='all'?allHist:allHist.filter(function(p){ return p.type===histFilter||(histFilter==='payment'&&!p.type); });
+  document.getElementById('pay-history').innerHTML=!filtered.length?'<div class="empty">No entries yet</div>':filtered.map(function(p){
     var dt=new Date(p.created_at).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'});
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap"><span style="font-weight:700">'+p.idiot+'</span><span class="badge b-paid">$'+parseFloat(p.amount).toFixed(2)+'</span>'+(p.note?'<span style="color:var(--muted)">'+p.note+'</span>':'')+'<span style="margin-left:auto;color:var(--muted);font-size:11px">'+dt+'</span><button class="btn-danger-sm" onclick="deletePayment('+p.id+')">✕</button></div>';
+    var isMediadle=p.type==='meddle';
+    var amt=parseFloat(p.amount);
+    var badge, amtHtml;
+    if(isMediadle){
+      badge='<span class="badge '+(amt>0?'b-meddle-pos':'b-meddle-neg')+'">🔧 '+(amt>0?'+':'')+'$'+amt.toFixed(2)+'</span>';
+      amtHtml='';
+    } else {
+      badge='<span class="badge b-paid">💳 $'+amt.toFixed(2)+'</span>';
+      amtHtml='';
+    }
+    return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">'
+      +'<span style="font-weight:700">'+p.idiot+'</span>'+badge
+      +(p.note?'<span style="color:var(--muted);font-size:12px;flex:1">'+p.note+'</span>':'<span style="flex:1"></span>')
+      +'<span style="color:var(--muted);font-size:11px">'+dt+'</span>'
+      +'<button class="btn-danger-sm" onclick="deletePayment('+p.id+')">✕</button></div>';
   }).join('');
 }
+
 
 // ─── BACKUP EXPORT ────────────────────────────────
 function loadXLSX(cb) {
