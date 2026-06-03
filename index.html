@@ -547,34 +547,108 @@ function renderNameEditor() {
   }).join('');
 }
 
-function saveNames() {
+async function saveNames() {
   var newNames = DEFAULT_IDIOTS.map(function(_, i) {
     var el = document.getElementById('name-input-'+i);
     var val = el ? el.value.trim() : '';
     return val || DEFAULT_IDIOTS[i];
   });
+
   // Check for duplicates
   var unique = newNames.filter(function(n,i){ return newNames.indexOf(n)===i; });
   if(unique.length !== 8) {
     document.getElementById('names-msg').innerHTML = '<span style="color:var(--red)">❌ Names must all be unique.</span>';
     return;
   }
-  IDIOTS = newNames;
-  saveNamesToStorage(IDIOTS);
-  // Rebuild all dropdowns
-  rebuildSelects();
-  renderAll();
-  document.getElementById('names-msg').innerHTML = '<span style="color:var(--green)">✓ Names saved!</span>';
-  setTimeout(function(){ document.getElementById('names-msg').innerHTML=''; }, 2500);
+
+  // Find which names actually changed (old → new)
+  var changes = [];
+  IDIOTS.forEach(function(oldName, i) {
+    if(oldName !== newNames[i]) changes.push({from: oldName, to: newNames[i]});
+  });
+
+  if(changes.length === 0) {
+    document.getElementById('names-msg').innerHTML = '<span style="color:var(--muted)">No changes made.</span>';
+    return;
+  }
+
+  var btn = document.querySelector('[onclick="saveNames()"]');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  document.getElementById('names-msg').innerHTML = '<span style="color:var(--muted)">Updating database…</span>';
+
+  try {
+    // Rename in DB for each changed name
+    for(var i=0; i<changes.length; i++) {
+      var c = changes[i];
+      // Update bets
+      await sbFetch('/rest/v1/bets?idiot=eq.'+encodeURIComponent(c.from), {
+        method: 'PATCH',
+        headers: {'Prefer':'return=minimal'},
+        body: JSON.stringify({idiot: c.to})
+      });
+      // Update payments
+      await sbFetch('/rest/v1/payments?idiot=eq.'+encodeURIComponent(c.from), {
+        method: 'PATCH',
+        headers: {'Prefer':'return=minimal'},
+        body: JSON.stringify({idiot: c.to})
+      });
+    }
+
+    // Apply locally
+    IDIOTS = newNames;
+    saveNamesToStorage(IDIOTS);
+
+    // Reload bets and payments to reflect DB changes
+    await loadBets();
+    await loadPayments();
+
+    rebuildSelects();
+    renderAll();
+
+    var summary = changes.map(function(c){ return '"'+c.from+'" → "'+c.to+'"'; }).join(', ');
+    document.getElementById('names-msg').innerHTML = '<span style="color:var(--green)">✓ Saved! Renamed: '+summary+'</span>';
+    setTimeout(function(){ document.getElementById('names-msg').innerHTML=''; }, 4000);
+
+  } catch(e) {
+    document.getElementById('names-msg').innerHTML = '<span style="color:var(--red)">Error: '+e.message+'</span>';
+  }
+
+  if(btn){ btn.disabled=false; btn.textContent='Save names'; }
 }
 
-function resetNames() {
-  IDIOTS = DEFAULT_IDIOTS.slice();
-  saveNamesToStorage(IDIOTS);
-  rebuildSelects();
-  renderNameEditor();
-  renderAll();
-  document.getElementById('names-msg').innerHTML = '<span style="color:var(--green)">✓ Reset to defaults.</span>';
+async function resetNames() {
+  var changes = [];
+  IDIOTS.forEach(function(name, i) {
+    if(name !== DEFAULT_IDIOTS[i]) changes.push({from: name, to: DEFAULT_IDIOTS[i]});
+  });
+
+  var btn = document.querySelector('[onclick="resetNames()"]');
+  if(btn){ btn.disabled=true; btn.textContent='Resetting…'; }
+
+  try {
+    for(var i=0; i<changes.length; i++) {
+      var c = changes[i];
+      await sbFetch('/rest/v1/bets?idiot=eq.'+encodeURIComponent(c.from), {
+        method:'PATCH', headers:{'Prefer':'return=minimal'}, body:JSON.stringify({idiot:c.to})
+      });
+      await sbFetch('/rest/v1/payments?idiot=eq.'+encodeURIComponent(c.from), {
+        method:'PATCH', headers:{'Prefer':'return=minimal'}, body:JSON.stringify({idiot:c.to})
+      });
+    }
+    IDIOTS = DEFAULT_IDIOTS.slice();
+    saveNamesToStorage(IDIOTS);
+    if(changes.length) {
+      await loadBets();
+      await loadPayments();
+    }
+    rebuildSelects();
+    renderAll();
+    document.getElementById('names-msg').innerHTML = '<span style="color:var(--green)">✓ Reset to defaults.</span>';
+  } catch(e) {
+    document.getElementById('names-msg').innerHTML = '<span style="color:var(--red)">Error: '+e.message+'</span>';
+  }
+
+  if(btn){ btn.disabled=false; btn.textContent='Reset to defaults'; }
   setTimeout(function(){ document.getElementById('names-msg').innerHTML=''; }, 2500);
 }
 
