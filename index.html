@@ -1729,25 +1729,23 @@ function renderLeaderboard() {
   // ── Team comparison — uses b.team field on each bet ────
   var teamNames = ['NIO','FFS'];
   var teamData = teamNames.map(function(t) {
-    // Use b.team on every bet — no-bets now store the real team too
-    var tb = bets.filter(function(b){ return b.team===t&&!b.boar&&b.result!=='Pending'; });
-    var settled = tb.filter(function(b){ return !b.nobet; });
+    // Get members assigned to this team in settings
+    var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
+    // Sum each member's effectivePL — exactly what leaderboard shows
+    var totalPL = parseFloat(members.reduce(function(sum,name){
+      return sum + effectivePL(name, bets.filter(function(b){ return b.idiot===name; }));
+    },0).toFixed(2));
+    // Stats from settled normal bets for this team (using b.team field)
+    var settled = bets.filter(function(b){ return b.team===t&&!b.boar&&!b.nobet&&b.result!=='Pending'; });
     var wins = settled.filter(function(b){ return b.result==='Win'; });
     var losses = settled.filter(function(b){ return b.result==='Loss'; });
-    // P/L = sum of settled bet P/L + no-bet penalties (NOBET_PL each)
-    var bettingPL = parseFloat(settled.reduce(function(s,b){ return s+b.pl; },0).toFixed(2));
-    var nobets = tb.filter(function(b){ return b.nobet; });
-    var nobetPenalty = nobets.length * NOBET_PL; // NOBET_PL = -30
-    var totalPL = parseFloat((bettingPL + nobetPenalty).toFixed(2));
     var totalWager = parseFloat(settled.reduce(function(s,b){ return s+b.wager; },0).toFixed(2));
     var wr = settled.length ? Math.round(wins.length/settled.length*100) : 0;
     var avgWinOdds = wins.length ? parseFloat((wins.reduce(function(s,b){ return s+b.odds; },0)/wins.length).toFixed(2)) : 0;
     var avgWager = settled.length ? parseFloat((totalWager/settled.length).toFixed(2)) : 0;
-    // Members from settings (display only)
-    var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
+    var nobets = bets.filter(function(b){ return b.nobet&&members.indexOf(b.idiot)>=0; }).length;
     return { team:t, members:members, bets:settled.length, wins:wins.length, losses:losses.length,
-             totalPL:totalPL, totalWager:totalWager, wr:wr, avgWinOdds:avgWinOdds, avgWager:avgWager,
-             nobets:nobets.length };
+             totalPL:totalPL, totalWager:totalWager, wr:wr, avgWinOdds:avgWinOdds, avgWager:avgWager, nobets:nobets };
   });
 
   var tc = document.getElementById('team-comparison');
