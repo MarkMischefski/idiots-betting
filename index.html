@@ -148,11 +148,6 @@ tbody tr:hover td{background:var(--surface2);}
 @media(min-width:700px){.desktop-only{display:flex!important;gap:6px;}}
 </style>
 </head>
-  <script>
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js');
-}
-</script>
 <body>
 
 <div id="loading"><div class="spinner"></div><div style="color:var(--muted);font-size:13px">Connecting…</div></div>
@@ -1047,7 +1042,7 @@ function getFineData() {
       var wb = bets.filter(function(b){ return b.idiot===name&&b.week===w&&!b.boar; });
       var settled = wb.filter(function(b){ return !b.nobet&&b.result!=='Pending'; });
       var hasNobet = wb.some(function(b){ return b.nobet; });
-      var totalWager = wb.filter(function(b){ return !b.nobet; }).reduce(function(s,b){ return s+b.wager; },0);
+      var totalWager = wb.filter(function(b){ return !b.nobet&&!b.boar; }).reduce(function(s,b){ return s+b.wager; },0);
       var isJoker = weekIsJoker(name,w);
       var limit = isJoker?JOKER_LIMIT:NORMAL_LIMIT;
       var exceedFine = totalWager>limit?EXCEED_FINE:0;
