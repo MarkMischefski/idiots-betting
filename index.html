@@ -1706,58 +1706,82 @@ function renderLeaderboard() {
     return '<tr><td style="font-weight:700">'+name+'</td>'+cells+'<td>'+fmtPL(effectivePL(name,bets.filter(function(b){ return b.idiot===name; })))+'</td></tr>';
   }).join('');
 
-  // ── Team comparison ─────────────────────────────
-  var teams = ['NIO','FFS'];
-  var teamData = teams.map(function(t) {
-    var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
-    var tb = bets.filter(function(b){ return members.indexOf(b.idiot)>=0&&!b.boar&&!b.nobet&&b.result!=='Pending'; });
+  // ── Team comparison — uses b.team field on each bet ────
+  var teamNames = ['NIO','FFS'];
+  var teamData = teamNames.map(function(t) {
+    // Use the team stored ON each bet (b.team), not the idiot mapping
+    var tb = bets.filter(function(b){ return b.team===t&&!b.boar&&!b.nobet&&b.result!=='Pending'; });
     var wins = tb.filter(function(b){ return b.result==='Win'; });
-    var totalPL = tb.reduce(function(s,b){ return s+b.pl; },0);
-    var totalWager = tb.reduce(function(s,b){ return s+b.wager; },0);
+    var losses = tb.filter(function(b){ return b.result==='Loss'; });
+    var totalPL = parseFloat(tb.reduce(function(s,b){ return s+b.pl; },0).toFixed(2));
+    var totalWager = parseFloat(tb.reduce(function(s,b){ return s+b.wager; },0).toFixed(2));
     var wr = tb.length ? Math.round(wins.length/tb.length*100) : 0;
-    var avgOdds = wins.length ? (wins.reduce(function(s,b){ return s+b.odds; },0)/wins.length).toFixed(2) : '—';
-    return { team:t, members:members, bets:tb.length, wins:wins.length, totalPL:totalPL, totalWager:totalWager, wr:wr, avgOdds:avgOdds };
+    var avgWinOdds = wins.length ? parseFloat((wins.reduce(function(s,b){ return s+b.odds; },0)/wins.length).toFixed(2)) : 0;
+    var avgWager = tb.length ? parseFloat((totalWager/tb.length).toFixed(2)) : 0;
+    // Members: idiots whose SETTING is this team (for display only)
+    var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
+    return { team:t, members:members, bets:tb.length, wins:wins.length, losses:losses.length,
+             totalPL:totalPL, totalWager:totalWager, wr:wr, avgWinOdds:avgWinOdds, avgWager:avgWager };
   });
 
   var tc = document.getElementById('team-comparison');
   if(!tc) return;
 
-  // Head-to-head bar
+  if(!teamData[0].bets && !teamData[1].bets) {
+    tc.innerHTML='<div class="empty">No settled bets yet</div>';
+    return;
+  }
+
   var nioData = teamData[0], ffsData = teamData[1];
   var totalBets = nioData.bets + ffsData.bets || 1;
-  var nioPct = Math.round(nioData.bets/totalBets*100);
-  var totalPLAll = Math.abs(nioData.totalPL)+Math.abs(ffsData.totalPL)||1;
+  var nioBetPct = Math.round(nioData.bets/totalBets*100);
 
   tc.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'
-    + teams.map(function(t,i){
+    + teamNames.map(function(t,i){
         var d = teamData[i];
         var plCol = d.totalPL>0?'var(--green)':d.totalPL<0?'var(--red)':'var(--muted)';
         var teamCol = t==='NIO'?'#8aabff':'#ff9080';
         return '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:14px">'
-          + '<div style="font-size:16px;font-weight:700;color:'+teamCol+';margin-bottom:10px">'+t
-          + ' <span style="font-size:11px;color:var(--muted);font-weight:400">'+d.members.join(', ')+'</span></div>'
-          + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">Season P/L</div><div style="font-size:20px;font-weight:700;color:'+plCol+'">'+(d.totalPL>=0?'+':'')+'$'+d.totalPL.toFixed(0)+'</div></div>'
-          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">Win rate</div><div style="font-size:20px;font-weight:700;">'+d.wr+'%</div></div>'
-          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">Bets</div><div style="font-size:16px;font-weight:600;">'+d.bets+' ('+d.wins+'W)</div></div>'
-          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">Avg win odds</div><div style="font-size:16px;font-weight:600;">'+d.avgOdds+'×</div></div>'
+          + '<div style="font-size:15px;font-weight:700;color:'+teamCol+';margin-bottom:4px">'+t+'</div>'
+          + '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">'+d.members.join(', ')+'</div>'
+          + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Season P/L</div>'
+          +      '<div style="font-size:22px;font-weight:700;color:'+plCol+'">'+(d.totalPL>=0?'+':'')+'$'+d.totalPL.toFixed(0)+'</div></div>'
+          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Win rate</div>'
+          +      '<div style="font-size:22px;font-weight:700;">'+d.wr+'%</div></div>'
+          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Bets (W/L)</div>'
+          +      '<div style="font-size:15px;font-weight:600;">'+d.bets+' <span style="color:var(--green)">'+d.wins+'W</span>/<span style="color:var(--red)">'+d.losses+'L</span></div></div>'
+          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Avg win odds</div>'
+          +      '<div style="font-size:15px;font-weight:600;">'+(d.avgWinOdds?d.avgWinOdds+'×':'—')+'</div></div>'
+          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Total wagered</div>'
+          +      '<div style="font-size:15px;font-weight:600;">$'+d.totalWager.toFixed(0)+'</div></div>'
+          + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Avg wager</div>'
+          +      '<div style="font-size:15px;font-weight:600;">$'+d.avgWager.toFixed(0)+'</div></div>'
           + '</div></div>';
       }).join('')
     + '</div>'
-    // Bets split bar
-    + '<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><span>NIO bets: '+nioData.bets+'</span><span>FFS bets: '+ffsData.bets+'</span></div>'
-    + '<div style="height:8px;border-radius:4px;background:rgba(255,120,100,0.3);overflow:hidden">'
-    + '<div style="height:100%;width:'+nioPct+'%;background:#8aabff;border-radius:4px;transition:width 0.4s"></div></div></div>'
-    // P/L bar
+    // Bet count bar
+    + '<div style="margin-bottom:10px">'
+    + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">'
+    + '<span style="color:#8aabff">NIO: '+nioData.bets+' bets</span><span style="color:#ff9080">FFS: '+ffsData.bets+' bets</span></div>'
+    + '<div style="height:8px;border-radius:4px;background:rgba(255,120,100,0.25);overflow:hidden">'
+    + '<div style="height:100%;width:'+nioBetPct+'%;background:#8aabff;border-radius:4px;transition:width 0.4s"></div></div></div>'
+    // P/L comparison bar — shows both sides from centre
     + (function(){
-        var nioAbs = Math.abs(nioData.totalPL), ffsAbs = Math.abs(ffsData.totalPL);
-        var tot = nioAbs+ffsAbs||1;
-        var nPct = Math.round(nioAbs/tot*100);
-        return '<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">'
-          + '<span>NIO P/L: '+(nioData.totalPL>=0?'+':'')+'$'+nioData.totalPL.toFixed(0)+'</span>'
-          + '<span>FFS P/L: '+(ffsData.totalPL>=0?'+':'')+'$'+ffsData.totalPL.toFixed(0)+'</span></div>'
-          + '<div style="height:8px;border-radius:4px;background:'+(ffsData.totalPL>=0?'var(--green-bg)':'var(--red-bg)')+';overflow:hidden">'
-          + '<div style="height:100%;width:'+nPct+'%;background:'+(nioData.totalPL>=0?'var(--green)':'var(--red)')+';border-radius:4px"></div></div></div>';
+        var nPL = nioData.totalPL, fPL = ffsData.totalPL;
+        var maxAbs = Math.max(Math.abs(nPL), Math.abs(fPL), 1);
+        var nW = Math.round(Math.abs(nPL)/maxAbs*50); // % of half-bar
+        var fW = Math.round(Math.abs(fPL)/maxAbs*50);
+        return '<div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">'
+          + '<span style="color:'+(nPL>=0?'var(--green)':'var(--red)')+'">NIO P/L: '+(nPL>=0?'+':'')+'$'+nPL.toFixed(0)+'</span>'
+          + '<span style="color:'+(fPL>=0?'var(--green)':'var(--red)')+'">FFS P/L: '+(fPL>=0?'+':'')+'$'+fPL.toFixed(0)+'</span></div>'
+          + '<div style="height:8px;border-radius:4px;background:var(--border);display:flex;overflow:hidden">'
+          + '<div style="flex:1;display:flex;justify-content:flex-end">'
+          + '<div style="width:'+nW+'%;background:'+(nPL>=0?'var(--green)':'var(--red)')+'"></div></div>'
+          + '<div style="width:2px;background:var(--muted);flex-shrink:0"></div>'
+          + '<div style="flex:1;display:flex;justify-content:flex-start">'
+          + '<div style="width:'+fW+'%;background:'+(fPL>=0?'var(--green)':'var(--red)')+'"></div></div>'
+          + '</div></div>';
       })();
 }
 
@@ -1964,8 +1988,8 @@ async function init(attempt) {
   loadingEl.innerHTML='<div class="spinner"></div><div style="color:var(--muted);font-size:13px;text-align:center">'+(attempt===1?'Connecting to database…':'Retrying… ('+attempt+'/'+maxAttempts+')')+'</div>';
   try {
     await loadBets();
-    loadPayments();   // non-blocking
-    loadTeamsFromDB().then(function(){ renderLeaderboard(); }); // update team comparison once loaded
+    await loadTeamsFromDB(); // await so team comparison is correct on first render
+    loadPayments();          // non-blocking — payments don't affect initial view
   } catch(e) {
     if(attempt<maxAttempts) {
       loadingEl.innerHTML='<div class="spinner"></div><div style="color:var(--muted);font-size:13px;text-align:center">Waking database…<br><span style="font-size:11px;opacity:0.6">Retrying in 3s</span></div>';
