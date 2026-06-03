@@ -1734,19 +1734,25 @@ function renderLeaderboard() {
   // ── Team comparison — uses b.team field on each bet ────
   var teamNames = ['NIO','FFS'];
   var teamData = teamNames.map(function(t) {
-    // Use the team stored ON each bet (b.team), not the idiot mapping
+    // Use the team stored ON each bet (b.team) for actual bets
     var tb = bets.filter(function(b){ return b.team===t&&!b.boar&&!b.nobet&&b.result!=='Pending'; });
     var wins = tb.filter(function(b){ return b.result==='Win'; });
     var losses = tb.filter(function(b){ return b.result==='Loss'; });
-    var totalPL = parseFloat(tb.reduce(function(s,b){ return s+b.pl; },0).toFixed(2));
+    var bettingPL = parseFloat(tb.reduce(function(s,b){ return s+b.pl; },0).toFixed(2));
     var totalWager = parseFloat(tb.reduce(function(s,b){ return s+b.wager; },0).toFixed(2));
     var wr = tb.length ? Math.round(wins.length/tb.length*100) : 0;
     var avgWinOdds = wins.length ? parseFloat((wins.reduce(function(s,b){ return s+b.odds; },0)/wins.length).toFixed(2)) : 0;
     var avgWager = tb.length ? parseFloat((totalWager/tb.length).toFixed(2)) : 0;
-    // Members: idiots whose SETTING is this team (for display only)
+    // Members: idiots whose SETTING is this team
     var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
+    // Add no-bet penalties for idiots on this team (uses idiot→team mapping)
+    var nobetPenalty = bets.filter(function(b){
+      return b.nobet && getIdiotTeam(b.idiot)===t;
+    }).length * NOBET_PL; // NOBET_PL is negative (-30)
+    var totalPL = parseFloat((bettingPL + nobetPenalty).toFixed(2));
+    var nobets = bets.filter(function(b){ return b.nobet && getIdiotTeam(b.idiot)===t; }).length;
     return { team:t, members:members, bets:tb.length, wins:wins.length, losses:losses.length,
-             totalPL:totalPL, totalWager:totalWager, wr:wr, avgWinOdds:avgWinOdds, avgWager:avgWager };
+             totalPL:totalPL, totalWager:totalWager, wr:wr, avgWinOdds:avgWinOdds, avgWager:avgWager, nobets:nobets };
   });
 
   var tc = document.getElementById('team-comparison');
@@ -1775,7 +1781,7 @@ function renderLeaderboard() {
           + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Win rate</div>'
           +      '<div style="font-size:22px;font-weight:700;">'+d.wr+'%</div></div>'
           + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Bets (W/L)</div>'
-          +      '<div style="font-size:15px;font-weight:600;">'+d.bets+' <span style="color:var(--green)">'+d.wins+'W</span>/<span style="color:var(--red)">'+d.losses+'L</span></div></div>'
+          +      '<div style="font-size:15px;font-weight:600;">'+d.bets+' <span style="color:var(--green)">'+d.wins+'W</span>/<span style="color:var(--red)">'+d.losses+'L</span>'+(d.nobets?'<span style="color:var(--purple);font-size:11px"> +'+d.nobets+' no-bet</span>':'')+'</div></div>'
           + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Avg win odds</div>'
           +      '<div style="font-size:15px;font-weight:600;">'+(d.avgWinOdds?d.avgWinOdds+'×':'—')+'</div></div>'
           + '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Total wagered</div>'
