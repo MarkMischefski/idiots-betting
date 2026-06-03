@@ -1737,12 +1737,14 @@ function effectivePL(name,subset) {
 
 function renderLeaderboard() {
   var settled=bets.filter(function(b){ return !b.nobet&&!b.boar&&b.result!=='Pending'; });
+  var pending=bets.filter(function(b){ return !b.nobet&&!b.boar&&b.result==='Pending'; });
+  var totalEntries=bets.length;
   var totalPL=IDIOTS.reduce(function(s,n){ return s+effectivePL(n,bets.filter(function(b){ return b.idiot===n; })); },0);
   var totalW=settled.reduce(function(s,b){ return s+b.wager; },0);
   var wins=settled.filter(function(b){ return b.result==='Win'; }).length;
   var wr=settled.length?Math.round(wins/settled.length*100):0;
   document.getElementById('global-stats').innerHTML=
-    '<div class="stat"><div class="stat-label">Entries</div><div class="stat-value">'+bets.length+'</div><div class="stat-sub">'+settled.length+' settled</div></div>'
+    '<div class="stat"><div class="stat-label">Entries</div><div class="stat-value">'+totalEntries+'</div><div class="stat-sub">'+(pending.length?'<span style="color:var(--amber)">'+pending.length+' pending</span>':'all settled')+'</div></div>'
     +'<div class="stat"><div class="stat-label">Season P/L</div><div class="stat-value '+(totalPL>=0?'pos':'neg')+'">'+(totalPL>=0?'+':'')+'$'+totalPL.toFixed(0)+'</div></div>'
     +'<div class="stat"><div class="stat-label">Wagered</div><div class="stat-value">$'+totalW.toFixed(0)+'</div></div>'
     +'<div class="stat"><div class="stat-label">Win rate</div><div class="stat-value">'+wr+'%</div><div class="stat-sub">'+wins+'W/'+(settled.length-wins)+'L</div></div>';
