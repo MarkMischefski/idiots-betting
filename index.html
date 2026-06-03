@@ -1180,15 +1180,65 @@ function calcPayout() {
   else plEl.textContent='—';
   var fineEl = document.getElementById('pp-fine');
   if(isBoar) {
-    if(result==='Win') fineEl.innerHTML='<span style="color:var(--teal)">Reduces fines</span>';
-    else if(result==='Loss') fineEl.innerHTML='<span style="color:var(--red)">+$'+wager.toFixed(2)+' fines</span>';
+    if(result==='Win') fineEl.innerHTML='<span style="color:var(--teal)">Reduces fines owed</span>';
+    else if(result==='Loss') fineEl.innerHTML='<span style="color:var(--red)">+$'+wager.toFixed(2)+' to fines</span>';
     else fineEl.textContent='—';
-  } else if(result==='Win'&&payout>=100) {
-    fineEl.textContent='💰 Others owe $'+(payout*0.1).toFixed(2);
-  } else if(result==='Loss') {
-    fineEl.textContent='Possible fine';
   } else {
-    fineEl.textContent='—';
+    // Calculate total fine that will apply
+    var fines = [];
+    var totalFine = 0;
+
+    // 1. Exceed fine: overage + $50
+    if(!isBoar && idiot && week) {
+      var already2 = weekWagered(idiot, week);
+      var isJoker2 = weekIsJoker(idiot, week) || useJoker;
+      var limit2 = isJoker2 ? JOKER_LIMIT : NORMAL_LIMIT;
+      var total2 = already2 + wager;
+      if(total2 > limit2) {
+        var over2 = parseFloat((total2 - limit2).toFixed(2));
+        var excFine = parseFloat((over2 + EXCEED_FINE).toFixed(2));
+        fines.push('Over limit: $'+excFine);
+        totalFine += excFine;
+      }
+    }
+
+    // 2. Loss fine (only if result is Loss and no exceed already triggers)
+    if(result === 'Loss') {
+      // Fine depends on what total return the week ends up with
+      // At this point return = 0 (this bet lost), so $40 fine applies
+      // unless other bets this week already have wins ≥ $15
+      if(idiot && week) {
+        var weekWins = bets.filter(function(b){
+          return b.idiot===idiot && b.week===week && !b.nobet && !b.boar && b.result==='Win';
+        });
+        var existingReturn = weekWins.reduce(function(s,b){ return s+b.payout; }, 0);
+        if(existingReturn === 0) {
+          fines.push('No return: $40');
+          totalFine += 40;
+        } else if(existingReturn < 15) {
+          fines.push('Return <$15: $20');
+          totalFine += 20;
+        }
+        // If existingReturn >= 15 already, no loss fine
+      } else {
+        fines.push('Possible loss fine');
+      }
+    }
+
+    // 3. Big win penalty
+    if(result === 'Win' && payout >= 100) {
+      var bigWinFine = parseFloat((payout * 0.1).toFixed(2));
+      fines.push('💰 Others owe $'+bigWinFine);
+    }
+
+    if(totalFine > 0) {
+      fineEl.innerHTML='<span style="color:var(--red)">$'+totalFine.toFixed(2)+' fine</span>'
+        +(fines.length>1?'<div style="font-size:10px;color:var(--muted)">'+fines.join(' + ')+'</div>':'');
+    } else if(fines.length > 0) {
+      fineEl.innerHTML='<span style="color:var(--amber)">'+fines.join(', ')+'</span>';
+    } else {
+      fineEl.textContent='—';
+    }
   }
 }
 
