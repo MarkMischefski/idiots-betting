@@ -188,6 +188,7 @@ tbody tr:hover td{background:var(--surface2);}
     <button class="nav-btn" onclick="goto('board')">Leaderboard</button>
     <button class="nav-btn" onclick="goto('fines')">Fines</button>
     <button class="nav-btn" onclick="goto('payments')">Payments</button>
+    <button class="nav-btn" onclick="goto('settings')">⚙ Settings</button>
   </nav>
   <div class="hdr-actions">
     <div class="sync-dot" id="sync-dot" title="Sync status"></div>
@@ -488,12 +489,107 @@ tbody tr:hover td{background:var(--surface2);}
   </div>
 </div>
 
+<!-- SETTINGS (desktop only) -->
+<div id="page-settings" class="page">
+  <div class="card" style="max-width:500px">
+    <div class="card-title">⚙ Idiot name editor</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">
+      Edit the display names of the 8 idiots. Names update everywhere in the app immediately.
+      Existing bets in the database will keep the old name — use the rename button to update those too.
+    </p>
+    <div id="name-editor-list"></div>
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-accent" style="width:auto;padding:10px 20px" onclick="saveNames()">Save names</button>
+      <button class="btn" style="width:auto;padding:10px 20px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted)" onclick="resetNames()">Reset to defaults</button>
+    </div>
+    <div id="names-msg" style="margin-top:10px;min-height:18px;font-size:13px"></div>
+  </div>
+</div>
+
 <script>
 // ─── CONFIG ───────────────────────────────────────
 const SUPABASE_URL = 'https://iaxdnwtevkadkyhxiybf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheGRud3RldmthZGt5aHhpeWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjUwMzksImV4cCI6MjA5NjAwMTAzOX0._QjzaPh23QrmBBcHLggs-ve4C09QKVpMzisq5TK7eeU';
 const HEADERS = {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
-const IDIOTS = ['Brent','Ghoms','Jason','Porpoise','Rob','Scootsie','Shahid','Wild Boar'];
+const DEFAULT_IDIOTS = ['Brent','Ghoms','Jason','Porpoise','Rob','Scootsie','Shahid','Wild Boar'];
+const NAMES_KEY = 'idiots_names_v1';
+
+// ─── NAME MANAGEMENT ──────────────────────────────
+// IDIOTS is mutable — loaded from localStorage or defaults
+var IDIOTS = loadNames();
+
+function loadNames() {
+  try {
+    var stored = localStorage.getItem(NAMES_KEY);
+    if(stored) {
+      var parsed = JSON.parse(stored);
+      if(Array.isArray(parsed) && parsed.length === 8) return parsed;
+    }
+  } catch(e) {}
+  return DEFAULT_IDIOTS.slice();
+}
+
+function saveNamesToStorage(names) {
+  try { localStorage.setItem(NAMES_KEY, JSON.stringify(names)); } catch(e) {}
+}
+
+function renderNameEditor() {
+  var list = document.getElementById('name-editor-list');
+  if(!list) return;
+  list.innerHTML = IDIOTS.map(function(name, i) {
+    var def = DEFAULT_IDIOTS[i];
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+      + '<span style="font-size:12px;color:var(--muted);width:16px;text-align:right;flex-shrink:0">'+(i+1)+'</span>'
+      + '<input type="text" id="name-input-'+i+'" value="'+name+'" placeholder="'+def+'"'
+      + ' style="flex:1;font-size:14px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text);font-family:inherit">'
+      + '<span style="font-size:11px;color:var(--muted);flex-shrink:0;min-width:60px">was: '+def+'</span>'
+      + '</div>';
+  }).join('');
+}
+
+function saveNames() {
+  var newNames = DEFAULT_IDIOTS.map(function(_, i) {
+    var el = document.getElementById('name-input-'+i);
+    var val = el ? el.value.trim() : '';
+    return val || DEFAULT_IDIOTS[i];
+  });
+  // Check for duplicates
+  var unique = newNames.filter(function(n,i){ return newNames.indexOf(n)===i; });
+  if(unique.length !== 8) {
+    document.getElementById('names-msg').innerHTML = '<span style="color:var(--red)">❌ Names must all be unique.</span>';
+    return;
+  }
+  IDIOTS = newNames;
+  saveNamesToStorage(IDIOTS);
+  // Rebuild all dropdowns
+  rebuildSelects();
+  renderAll();
+  document.getElementById('names-msg').innerHTML = '<span style="color:var(--green)">✓ Names saved!</span>';
+  setTimeout(function(){ document.getElementById('names-msg').innerHTML=''; }, 2500);
+}
+
+function resetNames() {
+  IDIOTS = DEFAULT_IDIOTS.slice();
+  saveNamesToStorage(IDIOTS);
+  rebuildSelects();
+  renderNameEditor();
+  renderAll();
+  document.getElementById('names-msg').innerHTML = '<span style="color:var(--green)">✓ Reset to defaults.</span>';
+  setTimeout(function(){ document.getElementById('names-msg').innerHTML=''; }, 2500);
+}
+
+// Rebuild all idiot <select> dropdowns throughout the app
+function rebuildSelects() {
+  var selIds = ['f-idiot','pay-idiot','meddle-idiot'];
+  selIds.forEach(function(id) {
+    var sel = document.getElementById(id);
+    if(!sel) return;
+    var prev = sel.value;
+    sel.innerHTML = '<option value="">Select…</option>'
+      + IDIOTS.map(function(n){ return '<option'+(n===prev?' selected':'')+'>'+n+'</option>'; }).join('');
+  });
+  renderNameEditor();
+}
 const NORMAL_LIMIT=30, JOKER_LIMIT=60, EXCEED_FINE=50, NOBET_FINE=40, NOBET_PL=-30;
 
 // ─── STATE ────────────────────────────────────────
@@ -1170,7 +1266,7 @@ async function deletePayment(id) {
 }
 
 // ─── NAV ──────────────────────────────────────────
-var PAGES=['add','bets','weekly','board','fines','payments'];
+var PAGES=['add','bets','weekly','board','fines','payments','settings'];
 function goto(page) {
   PAGES.forEach(function(p){
     document.getElementById('page-'+p).classList.remove('active');
@@ -1204,7 +1300,7 @@ function showToast(msg,ok,dur) {
   clearTimeout(t._t);
   t._t=setTimeout(function(){ t.style.display='none'; },dur);
 }
-function renderAll(){ renderBets(); renderWeekly(); renderLeaderboard(); renderFines(); renderPayments(); }
+function renderAll(){ renderBets(); renderWeekly(); renderLeaderboard(); renderFines(); renderPayments(); renderNameEditor(); }
 
 // ─── WEEK SUMMARY ─────────────────────────────────
 function renderWeekSummary(week) {
@@ -1685,6 +1781,7 @@ async function init(attempt) {
     return;
   }
   buildWeekSelect();
+  rebuildSelects();
   renderAll();
   loadingEl.style.display='none';
   lastMaxId=bets.length?Math.max.apply(null,bets.map(function(b){ return b.id; })):0;
