@@ -436,11 +436,16 @@ async function sbFetch(path, opts, timeoutMs) {
   var controller = new AbortController();
   var timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
   try {
-    var res = await fetch(SUPABASE_URL+path, Object.assign({headers:HEADERS, signal:controller.signal}, opts));
+    // Merge headers properly so base HEADERS are always included
+    var mergedHeaders = Object.assign({}, HEADERS, opts.headers||{});
+    var fetchOpts = Object.assign({}, opts, {headers: mergedHeaders, signal: controller.signal});
+    var res = await fetch(SUPABASE_URL+path, fetchOpts);
     clearTimeout(timer);
     if(!res.ok){ var t=await res.text(); throw new Error('HTTP '+res.status+': '+t); }
-    if(res.status===204) return null;
-    return res.json();
+    // Handle empty responses (204 or empty body)
+    var text = await res.text();
+    if(!text || !text.trim()) return null;
+    return JSON.parse(text);
   } catch(e) {
     clearTimeout(timer);
     if(e.name==='AbortError') throw new Error('Connection timed out');
@@ -479,11 +484,19 @@ function normalise(r) {
 }
 
 async function insertBet(b) {
-  await sbFetch('/rest/v1/bets', {method:'POST', headers:Object.assign({},HEADERS,{'Prefer':'return=minimal'}), body:JSON.stringify(b)});
+  await sbFetch('/rest/v1/bets', {
+    method:'POST',
+    headers:{'Prefer':'return=minimal'},
+    body:JSON.stringify(b)
+  });
 }
 
 async function updateBetInDB(id, fields) {
-  await sbFetch('/rest/v1/bets?id=eq.'+id, {method:'PATCH', headers:Object.assign({},HEADERS,{'Prefer':'return=minimal'}), body:JSON.stringify(fields)});
+  await sbFetch('/rest/v1/bets?id=eq.'+id, {
+    method:'PATCH',
+    headers:{'Prefer':'return=minimal'},
+    body:JSON.stringify(fields)
+  });
 }
 
 async function deleteBetInDB(id) {
@@ -491,7 +504,11 @@ async function deleteBetInDB(id) {
 }
 
 async function insertPayment(p) {
-  await sbFetch('/rest/v1/payments', {method:'POST', headers:Object.assign({},HEADERS,{'Prefer':'return=minimal'}), body:JSON.stringify(p)});
+  await sbFetch('/rest/v1/payments', {
+    method:'POST',
+    headers:{'Prefer':'return=minimal'},
+    body:JSON.stringify(p)
+  });
 }
 
 async function deletePaymentInDB(id) {
@@ -501,7 +518,7 @@ async function deletePaymentInDB(id) {
 async function upsertBets(rows) {
   await sbFetch('/rest/v1/bets?on_conflict=id', {
     method:'POST',
-    headers:Object.assign({},HEADERS,{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+    headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
     body:JSON.stringify(rows)
   });
 }
@@ -1308,7 +1325,7 @@ function importBackup(event) {
         if(!confirm('Import '+imported.length+' entries from "'+file.name+'"?\n\nThis will REPLACE all data in the database.')) return;
         showToast('Uploading…',true,60000);
         await sbFetch('/rest/v1/bets?id=gte.0',{method:'DELETE'});
-        await sbFetch('/rest/v1/bets?on_conflict=id',{method:'POST',headers:Object.assign({},HEADERS,{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(imported)});
+        await sbFetch('/rest/v1/bets?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(imported)});
         bets=imported.map(normalise);
         nextId=Math.max.apply(null,[500].concat(bets.map(function(b){ return b.id; })))+1;
         renderAll();
