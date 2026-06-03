@@ -1737,7 +1737,7 @@ function effectivePL(name,subset) {
 
 function renderLeaderboard() {
   var settled=bets.filter(function(b){ return !b.nobet&&!b.boar&&b.result!=='Pending'; });
-  var pending=bets.filter(function(b){ return !b.nobet&&!b.boar&&b.result==='Pending'; });
+  var pending=bets.filter(function(b){ return b.result==='Pending'; });
   var totalEntries=bets.length;
   var totalPL=IDIOTS.reduce(function(s,n){ return s+effectivePL(n,bets.filter(function(b){ return b.idiot===n; })); },0);
   var totalW=settled.reduce(function(s,b){ return s+b.wager; },0);
