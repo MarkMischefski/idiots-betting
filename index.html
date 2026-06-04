@@ -929,12 +929,31 @@ function buildWednesdayOptions() {
   var sinceLast = (today.getDay()-3+7)%7;
   var lastWed = new Date(today);
   lastWed.setDate(today.getDate()-sinceLast);
-  var start = new Date(lastWed);
-  start.setDate(lastWed.getDate()-16*7);
+
+  // Detect current quarter from selected quarter dropdown (default Q1)
+  var qSel = document.getElementById('f-quarter');
+  var currentQ = qSel ? qSel.value : 'Q1';
+
+  // Find the first week already bet in this quarter
+  var qBets = bets.filter(function(b){ return b.quarter===currentQ; });
+  var qWeeks = qBets.map(function(b){ return b.week; }).sort();
+  var firstWeek = qWeeks.length ? new Date(qWeeks[0]+'T12:00:00') : null;
+
+  var start, count;
+  if(firstWeek) {
+    // Quarter already started — show from first week, up to 13 weeks total
+    start = firstWeek;
+    count = 13;
+  } else {
+    // Quarter not started yet — show last Wed + next 12 weeks (full 13 ahead)
+    start = lastWed;
+    count = 13;
+  }
+
   var opts = [];
-  for(var i=0;i<=32;i++) {
+  for(var i=0; i<count; i++) {
     var d = new Date(start);
-    d.setDate(start.getDate()+i*7);
+    d.setDate(start.getDate() + i*7);
     opts.push(toYMD(d));
   }
   return opts;
@@ -951,14 +970,24 @@ function buildWeekSelect() {
     o.textContent = 'Wed '+fmtDate(w);
     sel.appendChild(o);
   });
-  if(!prev) {
+  // Try to restore previous selection if still in list, else default to most recent Wed
+  if(prev && wednesdays.indexOf(prev) >= 0) {
+    sel.value = prev;
+  } else {
+    // Default to most recent Wednesday that's in the list
     var today = new Date();
     var sinceLast = (today.getDay()-3+7)%7;
     var last = new Date(today);
     last.setDate(today.getDate()-sinceLast);
-    sel.value = toYMD(last);
-  } else {
-    sel.value = prev;
+    var lastYMD = toYMD(last);
+    // Pick closest week in the list to today's last Wednesday
+    if(wednesdays.indexOf(lastYMD) >= 0) {
+      sel.value = lastYMD;
+    } else {
+      // Pick the last week in the list that's <= today
+      var best = wednesdays.filter(function(w){ return w <= lastYMD; });
+      sel.value = best.length ? best[best.length-1] : wednesdays[0]||'';
+    }
   }
 }
 
@@ -1100,6 +1129,11 @@ function onFormChange() {
   var idiot = document.getElementById('f-idiot').value;
   var week  = document.getElementById('f-week').value;
   var quarter = document.getElementById('f-quarter').value;
+
+  // Rebuild week list for the selected quarter (different quarters have different date ranges)
+  buildWeekSelect();
+  // Re-read week after rebuild in case it changed
+  week = document.getElementById('f-week').value;
 
   // Auto-fill team from settings
   if(idiot) {
