@@ -32,11 +32,9 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 /* ── NEWS TICKER ── */
 .ticker-wrap{position:sticky;top:52px;z-index:190;background:var(--accent);overflow:hidden;height:26px;display:flex;align-items:center;border-bottom:1px solid rgba(0,0,0,0.2);}
 .ticker-label{flex-shrink:0;background:#111;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:.06em;padding:0 8px;height:100%;display:flex;align-items:center;white-space:nowrap;z-index:1;}
-.ticker-track{display:flex;align-items:center;white-space:nowrap;animation:ticker-scroll 8s linear infinite !important;will-change:transform;}
-.ticker-track:hover{animation-play-state:paused;}
+.ticker-track{display:flex;align-items:center;white-space:nowrap;will-change:transform;}
 .ticker-msg{font-size:11px;font-weight:700;color:#111;padding:0 28px;}
 .ticker-msg::after{content:'·';margin-left:28px;opacity:0.4;}
-@keyframes ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(var(--ticker-shift,-50%))}}
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:200;padding-bottom:env(safe-area-inset-bottom);}
 .bnav-inner{display:flex;}
 .bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:none;border:none;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
@@ -2005,20 +2003,39 @@ function buildTickerMessages() {
   return msgs;
 }
 
+var _tickerRAF = null;
+var _tickerPos = 0;
+var _tickerHalfWidth = 0;
+var _tickerSpeed = 0.6; // px per frame (~36px/sec at 60fps)
+
 function renderTicker() {
   var msgs = buildTickerMessages();
   var all = msgs.concat(msgs);
   var html = all.map(function(m){ return '<span class="ticker-msg">'+m+'</span>'; }).join('');
   var track = document.getElementById('ticker-track');
   if(!track) return;
-  var duration = Math.max(10, msgs.length * 2.5);
-  // Kill animation, update content, force reflow, restart from position 0
-  track.style.animation = 'none';
-  track.style.transform = 'translateX(0)';
+
+  if(_tickerRAF) { cancelAnimationFrame(_tickerRAF); _tickerRAF = null; }
+
   track.innerHTML = html;
-  void track.offsetWidth; // force reflow — browser must recalculate layout before restarting
-  track.style.animation = '';
-  track.style.animationDuration = duration + 's';
+  track.style.transform = 'translateX(0)';
+  _tickerPos = 0;
+
+  requestAnimationFrame(function(){
+    var spans = track.querySelectorAll('.ticker-msg');
+    _tickerHalfWidth = 0;
+    for(var i=0; i<msgs.length && i<spans.length; i++){
+      _tickerHalfWidth += spans[i].offsetWidth;
+    }
+    if(_tickerHalfWidth <= 0) return;
+    function tick() {
+      _tickerPos += _tickerSpeed;
+      if(_tickerPos >= _tickerHalfWidth) _tickerPos -= _tickerHalfWidth;
+      track.style.transform = 'translateX(-' + _tickerPos + 'px)';
+      _tickerRAF = requestAnimationFrame(tick);
+    }
+    _tickerRAF = requestAnimationFrame(tick);
+  });
 }
 
 function renderAll(){ renderBets(); renderWeekly(); renderLeaderboard(); renderFines(); renderPayments(); renderNameEditor(); renderTicker(); }
