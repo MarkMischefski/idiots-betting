@@ -2000,6 +2000,33 @@ function buildTickerMessages() {
   ];
   fillers.forEach(function(f){ msgs.push(f); });
 
+  // Shuffle, then fix consecutive same-idiot messages
+  // Fisher-Yates shuffle
+  for(var i=msgs.length-1; i>0; i--) {
+    var j = Math.floor(Math.random()*(i+1));
+    var tmp = msgs[i]; msgs[i] = msgs[j]; msgs[j] = tmp;
+  }
+
+  // Extract idiot name from a message (first word after any emoji/punctuation)
+  function msgIdiot(m) {
+    var clean = m.replace(/^[\s\S]*?([A-Z][a-z]+)/, '$1');
+    var match = m.match(/[A-Z][a-z]{2,}/);
+    return match ? match[0] : null;
+  }
+
+  // Re-order to avoid consecutive same idiot — swap offender with next non-matching msg
+  for(var i=0; i<msgs.length-1; i++) {
+    if(msgIdiot(msgs[i]) && msgIdiot(msgs[i])===msgIdiot(msgs[i+1])) {
+      // find next msg that has a different idiot
+      for(var k=i+2; k<msgs.length; k++) {
+        if(msgIdiot(msgs[k]) !== msgIdiot(msgs[i])) {
+          var tmp = msgs[i+1]; msgs[i+1] = msgs[k]; msgs[k] = tmp;
+          break;
+        }
+      }
+    }
+  }
+
   return msgs;
 }
 
