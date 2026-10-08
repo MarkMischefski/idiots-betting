@@ -1925,13 +1925,77 @@ function buildTickerMessages() {
   var openFutures = bets.filter(function(b){ return b.futures&&b.result==='Pending'; });
   if(openFutures.length) msgs.push('📅 '+openFutures.length+' futures bet'+(openFutures.length>1?'s are':' is')+' still live — fingers crossed');
 
-  // ── Filler banter if we don't have much
+  // ── High odds callouts (>= 5.0)
+  var highOdds = bets.filter(function(b){ return !b.nobet&&!b.boar&&b.odds>=5; })
+                     .sort(function(a,b){ return b.odds-a.odds; });
+  highOdds.forEach(function(b){
+    if(b.result==='Pending') {
+      var taunts = [
+        '🤞 '+b.idiot+' swinging at '+b.odds+'× odds on '+b.bet+' — absolute scenes if that lands',
+        '😂 Good luck '+b.idiot+', you\'re going to need it — '+b.odds+'× on '+b.bet,
+        '🙏 '+b.idiot+' praying on '+b.bet+' at '+b.odds+'× — someone light a candle',
+        '🎰 '+b.idiot+' playing the slots basically — '+b.odds+'× on '+b.bet,
+      ];
+      msgs.push(taunts[b.id % taunts.length]);
+    } else if(b.result==='Loss') {
+      var roasts = [
+        '🤡 '+b.idiot+' thought '+b.odds+'× was a sure thing on '+b.bet+' — spoiler: it wasn\'t',
+        '💀 RIP '+b.idiot+'\'s $'+b.wager+' on '+b.bet+' at '+b.odds+'× — what were you thinking?',
+        '😬 '+b.idiot+' went '+b.odds+'× on '+b.bet+' and got absolutely cooked',
+        '🗑️ '+b.idiot+' donated $'+b.wager+' to the fines fund via '+b.bet+' at '+b.odds+'× — cheers mate',
+      ];
+      msgs.push(roasts[b.id % roasts.length]);
+    } else if(b.result==='Win') {
+      msgs.push('🤯 '+b.idiot+' actually won at '+b.odds+'× on '+b.bet+' — get around him!!');
+    }
+  });
+
+  // ── Movers — who climbed or fell the table vs last week
+  var allWeeksSorted = bets.filter(function(b){ return !b.boar; })
+    .map(function(b){ return b.week; })
+    .filter(function(w,i,a){ return a.indexOf(w)===i; }).sort();
+  if(allWeeksSorted.length >= 2) {
+    var prevWeek = allWeeksSorted[allWeeksSorted.length-2];
+    var curWeek  = allWeeksSorted[allWeeksSorted.length-1];
+    var rankNow  = IDIOTS.map(function(n){ return { name:n, pl:effectivePL(n,bets.filter(function(b){ return b.idiot===n; })) }; })
+                         .sort(function(a,b){ return b.pl-a.pl; });
+    var betsUpToPrev = bets.filter(function(b){ return b.week<=prevWeek; });
+    var rankPrev = IDIOTS.map(function(n){ return { name:n, pl:effectivePL(n,betsUpToPrev.filter(function(b){ return b.idiot===n; })) }; })
+                         .sort(function(a,b){ return b.pl-a.pl; });
+    var posNow={}, posPrev={};
+    rankNow.forEach(function(r,i){ posNow[r.name]=i+1; });
+    rankPrev.forEach(function(r,i){ posPrev[r.name]=i+1; });
+    IDIOTS.forEach(function(name){
+      var moved = posPrev[name] - posNow[name]; // positive = climbed
+      if(moved>=2) msgs.push('📈 '+name+' climbed '+moved+' spots this week — on the move!');
+      else if(moved<=-2) msgs.push('📉 '+name+' dropped '+Math.abs(moved)+' places — what happened mate?');
+    });
+  }
+
+  // ── Meddle shoutouts
+  var meddles = payments.filter(function(p){ return p.type==='meddle'; })
+                        .sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+  if(meddles.length) {
+    var latest = meddles[0];
+    var amt = parseFloat(latest.amount);
+    var note = latest.note||latest.comments||'';
+    if(amt>0) msgs.push('🔧 '+latest.idiot+' hit with a $'+amt.toFixed(2)+' meddle'+(note?' — "'+note+'"':''));
+    else msgs.push('🔧 '+latest.idiot+' got a $'+Math.abs(amt).toFixed(2)+' fine reduction'+(note?' — "'+note+'"':''));
+    // Call out large meddles
+    meddles.forEach(function(m){
+      var a=parseFloat(m.amount);
+      if(Math.abs(a)>=50) msgs.push('💥 Big meddle alert: '+m.idiot+' '+(a>0?'+':'')+a.toFixed(2)+(m.note?' ('+m.note+')':''));
+    });
+  }
+
+  // ── Filler banter
   var fillers = [
     '🎲 Remember — it\'s not about the money, it\'s about the suffering',
     '📊 The house always wins. Unless you\'re Wild Boar, then nobody wins',
     '🍺 Every bet is a cry for help',
     '🔔 Fines are due. You know who you are',
     '🤡 Somewhere an idiot is placing a bad bet right now',
+    '🏇 Pick better horses. Or don\'t. The fines fund thanks you either way',
   ];
   fillers.forEach(function(f){ msgs.push(f); });
 
@@ -1946,8 +2010,8 @@ function renderTicker() {
   var track = document.getElementById('ticker-track');
   if(track) {
     track.innerHTML = html;
-    // Adjust animation speed based on message count (longer = slower)
-    var duration = Math.max(30, msgs.length * 7);
+    // Mobile: ~3.5s per message; halved from original for snappier feel
+    var duration = Math.max(15, msgs.length * 3.5);
     track.style.animationDuration = duration + 's';
   }
 }
