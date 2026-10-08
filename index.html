@@ -1826,6 +1826,13 @@ function buildTickerMessages() {
 
   var qBets = bets.filter(function(b){ return b.quarter===currentQ; });
 
+  // Recent weeks (last 4) — used for punt-specific messages so stats feel current
+  var allWeeksSorted = bets.map(function(b){ return b.week; })
+                           .filter(function(w,i,a){ return a.indexOf(w)===i; })
+                           .sort();
+  var recentWeeks = allWeeksSorted.slice(-4);
+  var recentBets = bets.filter(function(b){ return recentWeeks.indexOf(b.week)>=0; });
+
   // ── Team standings
   var teams = ['NIO','FFS'];
   var teamPL = {};
@@ -1880,18 +1887,16 @@ function buildTickerMessages() {
     msgs.push('💰 Biggest win: '+bw.idiot+' banked $'+bw.payout.toFixed(2)+' on '+bw.bet);
   }
 
-  // ── Longest win streak this quarter
+  // ── Win streak in recent weeks
   IDIOTS.forEach(function(name){
-    var qSettled = qBets.filter(function(b){ return b.idiot===name&&!b.nobet&&!b.boar&&b.result!=='Pending'; })
-                        .sort(function(a,b){ return a.week>b.week?1:-1; });
+    var settled = recentBets.filter(function(b){ return b.idiot===name&&!b.nobet&&!b.boar&&b.result!=='Pending'; })
+                            .sort(function(a,b){ return a.week>b.week?1:-1; });
     var streak=0, best=0;
-    qSettled.forEach(function(b){ if(b.result==='Win'){ streak++; best=Math.max(best,streak); } else streak=0; });
-    if(best>=3) msgs.push('🔥 '+name+' on a '+best+'-win streak in '+currentQ+' — hot hand!');
+    settled.forEach(function(b){ if(b.result==='Win'){ streak++; best=Math.max(best,streak); } else streak=0; });
+    if(best>=3) msgs.push('🔥 '+name+' on a '+best+'-win streak recently — hot hand!');
   });
 
   // ── Who hasn't bet yet this week
-  var allWeeks = bets.filter(function(b){ return !b.boar; }).map(function(b){ return b.week; }).sort();
-  var latestWeek = allWeeks[allWeeks.length-1];
   if(latestWeek) {
     var missing = IDIOTS.filter(function(n){
       return !bets.some(function(b){ return b.idiot===n&&b.week===latestWeek; });
@@ -1900,10 +1905,10 @@ function buildTickerMessages() {
     else if(missing.length>=2&&missing.length<=4) msgs.push('⏰ '+missing.join(', ')+' — no entries yet this week');
   }
 
-  // ── Most losses this quarter
+  // ── Losses in recent weeks
   IDIOTS.forEach(function(name){
-    var losses = qBets.filter(function(b){ return b.idiot===name&&b.result==='Loss'&&!b.boar; }).length;
-    if(losses>=5) msgs.push('😬 '+name+' with '+losses+' losses in '+currentQ+' — ouch');
+    var losses = recentBets.filter(function(b){ return b.idiot===name&&b.result==='Loss'&&!b.boar; }).length;
+    if(losses>=3) msgs.push('😬 '+name+' with '+losses+' losses in the last '+recentWeeks.length+' weeks — ouch');
   });
 
   // ── Joker used
@@ -1919,6 +1924,7 @@ function buildTickerMessages() {
   }
 
   // ── Pending this week
+  var latestWeek = allWeeksSorted[allWeeksSorted.length-1];
   var pending = latestWeek ? bets.filter(function(b){ return b.week===latestWeek&&b.result==='Pending'&&!b.nobet; }) : [];
   if(pending.length) msgs.push('⏳ '+pending.length+' bet'+(pending.length>1?'s':'')+' still pending this week — the suspense!');
 
@@ -1926,9 +1932,9 @@ function buildTickerMessages() {
   var openFutures = bets.filter(function(b){ return b.futures&&b.result==='Pending'; });
   if(openFutures.length) msgs.push('📅 '+openFutures.length+' futures bet'+(openFutures.length>1?'s are':' is')+' still live — fingers crossed');
 
-  // ── High odds callouts (>= 5.0)
-  var highOdds = bets.filter(function(b){ return !b.nobet&&!b.boar&&b.odds>=5; })
-                     .sort(function(a,b){ return b.odds-a.odds; });
+  // ── High odds callouts (>= 5.0) — recent weeks only
+  var highOdds = recentBets.filter(function(b){ return !b.nobet&&!b.boar&&b.odds>=5; })
+                            .sort(function(a,b){ return b.odds-a.odds; });
   highOdds.forEach(function(b){
     if(b.result==='Pending') {
       var taunts = [
