@@ -36,7 +36,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .ticker-track:hover{animation-play-state:paused;}
 .ticker-msg{font-size:11px;font-weight:700;color:#111;padding:0 28px;}
 .ticker-msg::after{content:'·';margin-left:28px;opacity:0.4;}
-@keyframes ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(var(--ticker-shift,-50%))}}
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:200;padding-bottom:env(safe-area-inset-bottom);}
 .bnav-inner{display:flex;}
 .bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:none;border:none;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
