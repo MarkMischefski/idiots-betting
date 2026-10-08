@@ -32,7 +32,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 /* ── NEWS TICKER ── */
 .ticker-wrap{position:sticky;top:52px;z-index:190;background:var(--accent);overflow:hidden;height:26px;display:flex;align-items:center;border-bottom:1px solid rgba(0,0,0,0.2);}
 .ticker-label{flex-shrink:0;background:#111;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:.06em;padding:0 8px;height:100%;display:flex;align-items:center;white-space:nowrap;z-index:1;}
-.ticker-track{display:flex;align-items:center;white-space:nowrap;animation:ticker-scroll 12s linear infinite;will-change:transform;}
+.ticker-track{display:flex;align-items:center;white-space:nowrap;animation:ticker-scroll 8s linear infinite !important;will-change:transform;}
 .ticker-track:hover{animation-play-state:paused;}
 .ticker-msg{font-size:11px;font-weight:700;color:#111;padding:0 28px;}
 .ticker-msg::after{content:'·';margin-left:28px;opacity:0.4;}
@@ -1060,12 +1060,6 @@ function setDefaultQuarter() {
 }
 
 function buildWednesdayOptions() {
-  var now = new Date();
-  now.setHours(23,59,59,0); // treat today as still valid
-  var sinceLast = (now.getDay()-3+7)%7;
-  var lastWed = new Date(now);
-  lastWed.setDate(now.getDate()-sinceLast); // most recent Wednesday (could be today)
-
   // Detect selected quarter
   var qSel = document.getElementById('f-quarter');
   var currentQ = qSel ? qSel.value : 'Q1';
@@ -1079,7 +1073,7 @@ function buildWednesdayOptions() {
   }
 
   // Derive this quarter's calendar start from Q1's anchor + 13-week blocks
-  var q1Anchor = firstBetWeekForQ('Q1') || lastWed;
+  var q1Anchor = firstBetWeekForQ('Q1') || new Date();
   var calStart = new Date(q1Anchor);
   calStart.setDate(q1Anchor.getDate() + (qNum-1)*13*7);
 
@@ -1087,17 +1081,16 @@ function buildWednesdayOptions() {
   var qFirstBet = firstBetWeekForQ(currentQ);
   var start = qFirstBet || calStart;
 
-  // Future quarter: calStart is still in the future → no options available
-  if(!qFirstBet && calStart > now) {
-    return []; // can't bet in a future quarter
+  // Future quarter with no bets yet and no known start: nothing to show
+  if(!qFirstBet && !q1Anchor) {
+    return [];
   }
 
-  // Build up to 13 weekly options, capped at most-recent Wednesday (no future dates)
+  // Build all 13 weekly options for the quarter (no future cap — show full quarter)
   var opts = [];
   for(var i=0; i<13; i++) {
     var d = new Date(start);
     d.setDate(start.getDate() + i*7);
-    if(d > now) break; // never show future weeks
     opts.push(toYMD(d));
   }
   return opts;
