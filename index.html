@@ -1847,12 +1847,22 @@ function buildTickerMessages() {
     msgs.push('⚖️ NIO and FFS dead level — something has to give');
   }
 
-  // ── No-bets per idiot this quarter
+  // ── Consecutive no-bets per idiot (only call out 3+ in a row — teams alternate weeks so skipping one is normal)
   IDIOTS.forEach(function(name){
-    var noCount = qBets.filter(function(b){ return b.idiot===name&&b.nobet; }).length;
-    if(noCount>=4) msgs.push('😴 '+name+' — '+noCount+' no-bets in '+currentQ+', are you even trying mate?');
-    else if(noCount===3) msgs.push('🤔 '+name+' with '+noCount+' no-bets in '+currentQ+' — come on now');
-    else if(noCount>=2) msgs.push('👀 '+name+' already sitting out '+noCount+' weeks in '+currentQ);
+    var myWeeks = qBets.filter(function(b){ return b.idiot===name; })
+                       .map(function(b){ return b.week; })
+                       .filter(function(w,i,a){ return a.indexOf(w)===i; })
+                       .sort();
+    if(!myWeeks.length) return;
+    // Count consecutive no-bets at the tail end of their entries
+    var streak = 0;
+    for(var i=myWeeks.length-1; i>=0; i--) {
+      var wb = qBets.filter(function(b){ return b.idiot===name&&b.week===myWeeks[i]; });
+      if(wb.some(function(b){ return b.nobet; })) { streak++; }
+      else { break; }
+    }
+    if(streak>=5) msgs.push('😴 '+name+' — '+streak+' no-bets in a row, are you still in this competition mate?');
+    else if(streak>=3) msgs.push('🤔 '+name+' has sat out '+streak+' weeks straight in '+currentQ+' — come on now');
   });
 
   // ── Current leader
