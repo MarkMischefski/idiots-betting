@@ -2007,18 +2007,18 @@ function buildTickerMessages() {
 
 function renderTicker() {
   var msgs = buildTickerMessages();
-  // Duplicate messages so scroll loops seamlessly
   var all = msgs.concat(msgs);
   var html = all.map(function(m){ return '<span class="ticker-msg">'+m+'</span>'; }).join('');
   var track = document.getElementById('ticker-track');
-  if(track) {
-    // Clone to force animation restart (fixes mobile not picking up new duration)
-    var fresh = track.cloneNode(false);
-    fresh.innerHTML = html;
-    var duration = Math.max(10, msgs.length * 2.5);
-    fresh.style.animationDuration = duration + 's';
-    track.parentNode.replaceChild(fresh, track);
-  }
+  if(!track) return;
+  var duration = Math.max(10, msgs.length * 2.5);
+  // Kill animation, update content, force reflow, restart from position 0
+  track.style.animation = 'none';
+  track.style.transform = 'translateX(0)';
+  track.innerHTML = html;
+  void track.offsetWidth; // force reflow — browser must recalculate layout before restarting
+  track.style.animation = '';
+  track.style.animationDuration = duration + 's';
 }
 
 function renderAll(){ renderBets(); renderWeekly(); renderLeaderboard(); renderFines(); renderPayments(); renderNameEditor(); renderTicker(); }
