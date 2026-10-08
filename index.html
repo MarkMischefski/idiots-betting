@@ -29,6 +29,14 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;}
 .sync-dot.live{background:var(--green);}
 .sync-dot.err{background:var(--red);}
+/* ── NEWS TICKER ── */
+.ticker-wrap{position:sticky;top:52px;z-index:190;background:var(--accent);overflow:hidden;height:26px;display:flex;align-items:center;border-bottom:1px solid rgba(0,0,0,0.2);}
+.ticker-label{flex-shrink:0;background:#111;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:.06em;padding:0 8px;height:100%;display:flex;align-items:center;white-space:nowrap;z-index:1;}
+.ticker-track{display:flex;align-items:center;white-space:nowrap;animation:ticker-scroll 40s linear infinite;will-change:transform;}
+.ticker-track:hover{animation-play-state:paused;}
+.ticker-msg{font-size:11px;font-weight:700;color:#111;padding:0 28px;}
+.ticker-msg::after{content:'·';margin-left:28px;opacity:0.4;}
+@keyframes ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:200;padding-bottom:env(safe-area-inset-bottom);}
 .bnav-inner{display:flex;}
 .bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:none;border:none;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
@@ -77,6 +85,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .btn{border:none;border-radius:var(--r-sm);font-size:14px;font-weight:700;padding:12px 22px;cursor:pointer;font-family:inherit;transition:all 0.15s;width:100%;}
 .btn-accent{background:var(--accent);color:#111;}
 .btn-danger-sm{background:var(--red-bg);border:1px solid rgba(240,96,96,0.3);color:var(--red);padding:5px 10px;font-size:12px;font-weight:600;border-radius:var(--r-sm);cursor:pointer;font-family:inherit;}
+.btn-edit{background:var(--surface2);border:1px solid var(--border2);color:var(--muted);border-radius:var(--r-sm);padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px;}
 .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;}
 .b-win{background:var(--green-bg);color:var(--green);}
 .b-loss{background:var(--red-bg);color:var(--red);}
@@ -84,6 +93,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .b-nobet{background:var(--purple-bg);color:var(--purple);}
 .b-fine{background:var(--amber-bg);color:var(--amber);}
 .b-boar{background:var(--teal-bg);color:var(--teal);}
+.b-futures{background:rgba(139,92,246,0.15);color:#a78bfa;}
 .b-paid{background:var(--green-bg);color:var(--green);}
 .b-meddle{background:var(--purple-bg);color:var(--purple);}
 .b-meddle-pos{background:var(--red-bg);color:var(--red);}
@@ -163,6 +173,86 @@ tbody tr:hover td{background:var(--surface2);}
   </div>
 </div>
 
+<!-- Edit Bet Modal -->
+<div class="modal-bg" id="edit-modal">
+  <div class="modal" style="max-width:480px;width:100%">
+    <h3>✏️ Edit Entry</h3>
+    <div class="form-stack" style="margin-top:14px">
+      <div class="form-row">
+        <div class="fg"><label>Idiot</label>
+          <select id="edit-idiot"></select>
+        </div>
+        <div class="fg"><label>Entry type</label>
+          <select id="edit-type" onchange="onEditTypeChange()">
+            <option value="bet">Bet</option>
+            <option value="boar">Boar Punt 🐗</option>
+            <option value="futures">Futures Bet 📅</option>
+            <option value="nobet">No Bet Placed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>Week</label>
+          <select id="edit-week"></select>
+        </div>
+        <div class="fg"><label>Quarter</label>
+          <select id="edit-quarter">
+            <option value="Q1">Quarter 1</option><option value="Q2">Quarter 2</option>
+            <option value="Q3">Quarter 3</option><option value="Q4">Quarter 4</option>
+          </select>
+        </div>
+      </div>
+      <!-- Bet / Boar fields -->
+      <div id="edit-bet-fields">
+        <div class="fg" style="margin-bottom:10px"><label>Bet description</label>
+          <input type="text" id="edit-bet" placeholder="e.g. Chiefs to win">
+        </div>
+        <div class="form-row">
+          <div class="fg"><label>Wager ($)</label>
+            <input type="number" id="edit-wager" min="0" step="0.01" inputmode="decimal">
+          </div>
+          <div class="fg"><label>Odds (×)</label>
+            <input type="number" id="edit-odds" min="1" step="0.01" inputmode="decimal">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg"><label>Result</label>
+            <select id="edit-result">
+              <option value="Pending">Pending</option>
+              <option value="Win">Win</option>
+              <option value="Loss">Loss</option>
+            </select>
+          </div>
+          <div class="fg" id="edit-team-wrap"><label>Team</label>
+            <select id="edit-team">
+              <option value="NIO">NIO</option>
+              <option value="FFS">FFS</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg" id="edit-joker-wrap"><label>Joker?</label>
+          <select id="edit-joker">
+            <option value="false">No</option>
+            <option value="true">Yes ★</option>
+          </select>
+        </div>
+      </div>
+      <!-- NoBet notice -->
+      <div id="edit-nobet-notice" style="display:none;background:var(--red-bg);border:1px solid rgba(240,96,96,0.25);border-radius:var(--r-sm);padding:10px 12px;font-size:12px;color:var(--red)">
+        No bet placed — $40 fine + −$30 P/L applied automatically.
+      </div>
+      <div class="fg"><label>Comments</label>
+        <input type="text" id="edit-comments" placeholder="Optional note">
+      </div>
+      <div id="edit-msg" style="min-height:16px;font-size:12px;text-align:center"></div>
+    </div>
+    <div class="modal-btns" style="margin-top:14px">
+      <button class="btn" style="background:var(--surface2);border:1px solid var(--border2);color:var(--muted)" onclick="closeEditModal()">Cancel</button>
+      <button class="btn" style="flex:1;background:var(--accent);color:#111;padding:11px;font-weight:700" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="season-modal">
   <div class="modal">
     <h3>🏁 Start New Season</h3>
@@ -200,6 +290,16 @@ tbody tr:hover td{background:var(--surface2);}
     </div>
   </div>
 </header>
+
+<!-- NEWS TICKER -->
+<div class="ticker-wrap" id="ticker-wrap">
+  <div class="ticker-label">📡 LIVE</div>
+  <div style="overflow:hidden;flex:1">
+    <div class="ticker-track" id="ticker-track">
+      <span class="ticker-msg">Loading…</span>
+    </div>
+  </div>
+</div>
 
 <nav class="bottom-nav">
   <div class="bnav-inner">
@@ -240,6 +340,7 @@ tbody tr:hover td{background:var(--surface2);}
             <option value="bet">Bet placed</option>
             <option value="nobet">No bet placed</option>
             <option value="boar">🐗 Boar Punt</option>
+            <option value="futures">📅 Futures Bet</option>
           </select>
         </div>
       </div>
@@ -312,6 +413,7 @@ tbody tr:hover td{background:var(--surface2);}
     <button class="chip" onclick="setResFilter(this,'Pending')">Pending</button>
     <button class="chip" onclick="setResFilter(this,'NoBet')">No Bet</button>
     <button class="chip" onclick="setResFilter(this,'Boar')">🐗 Boar</button>
+    <button class="chip" onclick="setResFilter(this,'Futures')">📅 Futures</button>
   </div>
   <div id="bets-cards" class="show-mobile"></div>
   <div class="card hide-mobile">
@@ -468,7 +570,16 @@ tbody tr:hover td{background:var(--surface2);}
 
   <!-- Balances -->
   <div class="card" style="margin-bottom:12px">
-    <div class="card-title">Fine balances</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div class="card-title" style="margin:0">Fine balances</div>
+      <div class="chips" style="margin:0" id="pay-q-chips">
+        <button class="chip active" onclick="setPayQFilter(this,'all')">All</button>
+        <button class="chip" onclick="setPayQFilter(this,'Q1')">Q1</button>
+        <button class="chip" onclick="setPayQFilter(this,'Q2')">Q2</button>
+        <button class="chip" onclick="setPayQFilter(this,'Q3')">Q3</button>
+        <button class="chip" onclick="setPayQFilter(this,'Q4')">Q4</button>
+      </div>
+    </div>
     <div id="pay-balances"></div>
   </div>
 
@@ -747,7 +858,7 @@ const NORMAL_LIMIT=30, JOKER_LIMIT=60, EXCEED_FINE=50, NOBET_FINE=40, NOBET_PL=-
 
 // ─── STATE ────────────────────────────────────────
 var bets=[], payments=[];
-var filterIdiot='All', filterResult='All', lbQ='all', wvQ='all', histFilter='all';
+var filterIdiot='All', filterResult='All', lbQ='all', wvQ='all', histFilter='all', payQFilter='all';
 var pendingDeleteId=null, nextId=1000, nextPayId=5000;
 var pollTimer=null, wsRetries=0, lastMaxId=0, lastBetCount=0;
 var currentSeason=null; // null = load from DB
@@ -809,9 +920,10 @@ function normalise(r) {
     wager:parseFloat(r.wager)||0, odds:parseFloat(r.odds)||0,
     payout:parseFloat(r.payout)||0, pl:parseFloat(r.pl)||0,
     result:r.result||'Pending',
-    nobet: r.nobet===true||r.nobet==='true',
-    joker: r.joker===true||r.joker==='true',
-    boar:  r.boar===true||r.boar==='true',
+    nobet:    r.nobet===true||r.nobet==='true',
+    joker:    r.joker===true||r.joker==='true',
+    boar:     r.boar===true||r.boar==='true',
+    futures:  r.futures===true||r.futures==='true',
     archived: r.archived===true||r.archived==='true',
     comments:r.comments||''
   };
@@ -924,36 +1036,68 @@ function toYMD(dt) {
   return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
 }
 
-function buildWednesdayOptions() {
-  var today = new Date();
-  var sinceLast = (today.getDay()-3+7)%7;
-  var lastWed = new Date(today);
-  lastWed.setDate(today.getDate()-sinceLast);
+function setDefaultQuarter() {
+  // Work out which quarter is currently active and set the dropdown to it.
+  // The active quarter is the highest Q whose calendar start is <= today.
+  var now = new Date();
+  now.setHours(23,59,59,0);
 
-  // Detect current quarter from selected quarter dropdown (default Q1)
-  var qSel = document.getElementById('f-quarter');
-  var currentQ = qSel ? qSel.value : 'Q1';
-
-  // Find the first week already bet in this quarter
-  var qBets = bets.filter(function(b){ return b.quarter===currentQ; });
-  var qWeeks = qBets.map(function(b){ return b.week; }).sort();
-  var firstWeek = qWeeks.length ? new Date(qWeeks[0]+'T12:00:00') : null;
-
-  var start, count;
-  if(firstWeek) {
-    // Quarter already started — show from first week, up to 13 weeks total
-    start = firstWeek;
-    count = 13;
-  } else {
-    // Quarter not started yet — show last Wed + next 12 weeks (full 13 ahead)
-    start = lastWed;
-    count = 13;
+  function firstBetWeek(q) {
+    var weeks = bets.filter(function(b){ return b.quarter===q; }).map(function(b){ return b.week; }).sort();
+    return weeks.length ? new Date(weeks[0]+'T12:00:00') : null;
   }
 
+  var q1Anchor = firstBetWeek('Q1') || now; // if no Q1 bets yet, anchor to today
+  var active = 'Q1';
+  for(var n=2; n<=4; n++) {
+    var calStart = new Date(q1Anchor);
+    calStart.setDate(q1Anchor.getDate() + (n-1)*13*7);
+    if(calStart <= now) active = 'Q'+n;
+  }
+
+  var sel = document.getElementById('f-quarter');
+  if(sel) sel.value = active;
+}
+
+function buildWednesdayOptions() {
+  var now = new Date();
+  now.setHours(23,59,59,0); // treat today as still valid
+  var sinceLast = (now.getDay()-3+7)%7;
+  var lastWed = new Date(now);
+  lastWed.setDate(now.getDate()-sinceLast); // most recent Wednesday (could be today)
+
+  // Detect selected quarter
+  var qSel = document.getElementById('f-quarter');
+  var currentQ = qSel ? qSel.value : 'Q1';
+  var qNum = parseInt(currentQ.replace('Q',''),10)||1; // 1-4
+
+  // Helper: first bet week for a given quarter
+  function firstBetWeekForQ(q) {
+    var qb = bets.filter(function(b){ return b.quarter===q; });
+    var weeks = qb.map(function(b){ return b.week; }).sort();
+    return weeks.length ? new Date(weeks[0]+'T12:00:00') : null;
+  }
+
+  // Derive this quarter's calendar start from Q1's anchor + 13-week blocks
+  var q1Anchor = firstBetWeekForQ('Q1') || lastWed;
+  var calStart = new Date(q1Anchor);
+  calStart.setDate(q1Anchor.getDate() + (qNum-1)*13*7);
+
+  // If this quarter already has bets, use actual first bet as start
+  var qFirstBet = firstBetWeekForQ(currentQ);
+  var start = qFirstBet || calStart;
+
+  // Future quarter: calStart is still in the future → no options available
+  if(!qFirstBet && calStart > now) {
+    return []; // can't bet in a future quarter
+  }
+
+  // Build up to 13 weekly options, capped at most-recent Wednesday (no future dates)
   var opts = [];
-  for(var i=0; i<count; i++) {
+  for(var i=0; i<13; i++) {
     var d = new Date(start);
     d.setDate(start.getDate() + i*7);
+    if(d > now) break; // never show future weeks
     opts.push(toYMD(d));
   }
   return opts;
@@ -964,6 +1108,14 @@ function buildWeekSelect() {
   var sel = document.getElementById('f-week');
   var prev = sel.value;
   sel.innerHTML = '<option value="">Select week…</option>';
+  if(wednesdays.length === 0) {
+    // Future quarter — show a placeholder
+    var o = document.createElement('option');
+    o.value = '';
+    o.textContent = 'Quarter not started yet';
+    sel.appendChild(o);
+    return;
+  }
   wednesdays.forEach(function(w) {
     var o = document.createElement('option');
     o.value = w;
@@ -974,20 +1126,8 @@ function buildWeekSelect() {
   if(prev && wednesdays.indexOf(prev) >= 0) {
     sel.value = prev;
   } else {
-    // Default to most recent Wednesday that's in the list
-    var today = new Date();
-    var sinceLast = (today.getDay()-3+7)%7;
-    var last = new Date(today);
-    last.setDate(today.getDate()-sinceLast);
-    var lastYMD = toYMD(last);
-    // Pick closest week in the list to today's last Wednesday
-    if(wednesdays.indexOf(lastYMD) >= 0) {
-      sel.value = lastYMD;
-    } else {
-      // Pick the last week in the list that's <= today
-      var best = wednesdays.filter(function(w){ return w <= lastYMD; });
-      sel.value = best.length ? best[best.length-1] : wednesdays[0]||'';
-    }
+    // Default to most recent week in the list (last entry is always closest to today)
+    sel.value = wednesdays[wednesdays.length-1] || '';
   }
 }
 
@@ -1116,6 +1256,7 @@ function onTypeChange() {
   var type = document.getElementById('f-type').value;
   var isNobet = type==='nobet';
   var isBoar = type==='boar';
+  // futures behaves exactly like a normal bet — same fields, limits, joker
   document.getElementById('bet-fields').style.display = isNobet?'none':'';
   document.getElementById('nobet-notice').style.display = isNobet?'':'none';
   document.getElementById('boar-notice').style.display = isBoar?'':'none';
@@ -1296,7 +1437,7 @@ async function addBet() {
     if(type==='nobet') {
       b={id:nextId++,idiot:idiot,week:week,quarter:document.getElementById('f-quarter').value,
         team:getIdiotTeam(idiot)||'NIO',bet:'No bet placed',wager:0,odds:0,payout:0,pl:NOBET_PL,
-        result:'NoBet',nobet:true,joker:false,boar:false,comments:document.getElementById('f-comments').value};
+        result:'NoBet',nobet:true,joker:false,boar:false,futures:false,comments:document.getElementById('f-comments').value};
     } else {
       var bet = document.getElementById('f-bet').value.trim();
       var wager = parseFloat(document.getElementById('f-wager').value);
@@ -1304,6 +1445,7 @@ async function addBet() {
       var result = document.getElementById('f-result').value;
       if(!bet||!wager||!odds){ msg.className='msg-err'; msg.textContent='Fill in bet, wager and odds.'; btn.disabled=false; btn.textContent='Add entry'; return; }
       var isBoar = type==='boar';
+      var isFutures = type==='futures';
       var useJoker = !isBoar&&document.getElementById('f-joker').value==='yes';
       if(useJoker&&jokerElsewhere(idiot,week)){ msg.className='msg-err'; msg.textContent='Joker already used!'; btn.disabled=false; btn.textContent='Add entry'; return; }
       var payout = result==='Win'?parseFloat((wager*odds).toFixed(2)):result==='Loss'?0:parseFloat((wager*odds).toFixed(2));
@@ -1311,7 +1453,7 @@ async function addBet() {
       if(useJoker) bets.filter(function(b){ return b.idiot===idiot&&b.week===week; }).forEach(function(b){ b.joker=true; });
       b={id:nextId++,idiot:idiot,week:week,quarter:document.getElementById('f-quarter').value,
         team:document.getElementById('f-team').value,bet:bet,wager:wager,odds:odds,payout:payout,pl:pl,result:result,
-        nobet:false,joker:useJoker,boar:isBoar,comments:document.getElementById('f-comments').value};
+        nobet:false,joker:useJoker,boar:isBoar,futures:isFutures,comments:document.getElementById('f-comments').value};
     }
     await insertBet(b);
     bets.push(normalise(b));
@@ -1340,6 +1482,130 @@ async function addBet() {
   }
   btn.disabled=false; btn.textContent='Add entry';
 }
+
+// ─── EDIT ─────────────────────────────────────────
+var editingId = null;
+
+function onEditTypeChange() {
+  var type = document.getElementById('edit-type').value;
+  document.getElementById('edit-bet-fields').style.display  = type==='nobet' ? 'none' : '';
+  document.getElementById('edit-nobet-notice').style.display = type==='nobet' ? '' : 'none';
+  // Hide joker for boar
+  document.getElementById('edit-joker-wrap').style.display  = type==='boar' ? 'none' : '';
+  // Hide team for boar (no limit = no team needed for fines, but keep for display)
+  document.getElementById('edit-team-wrap').style.display   = type==='boar' ? 'none' : '';
+}
+
+function openEditModal(id) {
+  var b = bets.find(function(x){ return x.id===id; });
+  if(!b) return;
+  editingId = id;
+
+  // Idiot select
+  var idiotSel = document.getElementById('edit-idiot');
+  idiotSel.innerHTML = IDIOTS.map(function(n){ return '<option value="'+n+'"'+(n===b.idiot?' selected':'')+'>'+n+'</option>'; }).join('');
+
+  // Entry type
+  var type = b.nobet ? 'nobet' : b.boar ? 'boar' : b.futures ? 'futures' : 'bet';
+  document.getElementById('edit-type').value = type;
+
+  // Week select — all weeks in DB + this bet's week
+  var allWeeks = [];
+  bets.forEach(function(x){ if(allWeeks.indexOf(x.week)<0) allWeeks.push(x.week); });
+  if(allWeeks.indexOf(b.week)<0) allWeeks.push(b.week);
+  allWeeks.sort();
+  var weekSel = document.getElementById('edit-week');
+  weekSel.innerHTML = allWeeks.map(function(w){ return '<option value="'+w+'"'+(w===b.week?' selected':'')+'>Wed '+fmtDate(w)+'</option>'; }).join('');
+
+  document.getElementById('edit-quarter').value = b.quarter||'Q1';
+  document.getElementById('edit-comments').value = b.comments||'';
+
+  // Bet/Boar fields
+  document.getElementById('edit-bet').value   = b.bet||'';
+  document.getElementById('edit-wager').value = b.wager||'';
+  document.getElementById('edit-odds').value  = b.odds||'';
+  document.getElementById('edit-result').value= b.result||'Pending';
+  document.getElementById('edit-team').value  = b.team||'NIO';
+  document.getElementById('edit-joker').value = b.joker?'true':'false';
+
+  onEditTypeChange();
+  document.getElementById('edit-msg').textContent = '';
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editingId = null;
+}
+
+async function saveEdit() {
+  if(editingId===null) return;
+  var b   = bets.find(function(x){ return x.id===editingId; });
+  if(!b) return;
+  var btn = document.querySelector('#edit-modal .btn[onclick="saveEdit()"]');
+  var msg = document.getElementById('edit-msg');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  try {
+    var idiot   = document.getElementById('edit-idiot').value;
+    var type    = document.getElementById('edit-type').value;
+    var week    = document.getElementById('edit-week').value;
+    var quarter = document.getElementById('edit-quarter').value;
+    var comments= document.getElementById('edit-comments').value;
+
+    var updates = { idiot:idiot, week:week, quarter:quarter, comments:comments,
+                    nobet: type==='nobet', boar: type==='boar', futures: type==='futures' };
+
+    if(type==='nobet') {
+      updates.bet='No bet placed'; updates.wager=0; updates.odds=0;
+      updates.payout=0; updates.pl=NOBET_PL; updates.result='NoBet';
+      updates.team=getIdiotTeam(idiot)||'NIO'; updates.joker=false;
+    } else {
+      var bet    = document.getElementById('edit-bet').value.trim();
+      var wager  = parseFloat(document.getElementById('edit-wager').value)||0;
+      var odds   = parseFloat(document.getElementById('edit-odds').value)||0;
+      var result = document.getElementById('edit-result').value;
+
+      if(!bet)  { msg.style.color='var(--red)'; msg.textContent='Bet description required.'; btn.disabled=false; btn.textContent='Save changes'; return; }
+      if(!wager){ msg.style.color='var(--red)'; msg.textContent='Wager required.'; btn.disabled=false; btn.textContent='Save changes'; return; }
+      if(!odds) { msg.style.color='var(--red)'; msg.textContent='Odds required.'; btn.disabled=false; btn.textContent='Save changes'; return; }
+
+      var payout = result==='Win' ? parseFloat((wager*odds).toFixed(2)) : 0;
+      var pl     = result==='Win' ? parseFloat((wager*(odds-1)).toFixed(2))
+                 : result==='Loss' ? parseFloat((-wager).toFixed(2)) : 0;
+
+      updates.bet=bet; updates.wager=wager; updates.odds=odds;
+      updates.result=result; updates.payout=payout; updates.pl=pl;
+
+      if(type==='bet') {
+        updates.team  = document.getElementById('edit-team').value;
+        updates.joker = document.getElementById('edit-joker').value==='true';
+      } else { // boar
+        updates.team  = getIdiotTeam(idiot)||'NIO';
+        updates.joker = false;
+      }
+    }
+
+    await sbFetch('/rest/v1/bets?on_conflict=id', {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([Object.assign({id:editingId}, updates)])
+    });
+
+    Object.assign(b, updates);
+    renderAll();
+    showToast('✓ Saved',true);
+    closeEditModal();
+  } catch(e) {
+    msg.style.color='var(--red)'; msg.textContent='Error: '+e.message;
+    btn.disabled=false; btn.textContent='Save changes';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var em = document.getElementById('edit-modal');
+  if(em) em.addEventListener('click', function(e){ if(e.target.id==='edit-modal') closeEditModal(); });
+});
 
 // ─── DELETE ───────────────────────────────────────
 function askDelete(id) {
@@ -1424,6 +1690,13 @@ function setPayTab(tab) {
 function setHistFilter(el,val) {
   histFilter=val;
   ['hist-all','hist-pay','hist-med'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
+  el.classList.add('active');
+  renderPayments();
+}
+
+function setPayQFilter(el,val) {
+  payQFilter=val;
+  document.querySelectorAll('#pay-q-chips .chip').forEach(function(c){ c.classList.remove('active'); });
   el.classList.add('active');
   renderPayments();
 }
@@ -1548,7 +1821,138 @@ function showToast(msg,ok,dur) {
   clearTimeout(t._t);
   t._t=setTimeout(function(){ t.style.display='none'; },dur);
 }
-function renderAll(){ renderBets(); renderWeekly(); renderLeaderboard(); renderFines(); renderPayments(); renderNameEditor(); }
+// ─── NEWS TICKER ──────────────────────────────────
+function buildTickerMessages() {
+  var msgs = [];
+  if(!bets.length) return ['🎲 No bets yet — someone get the ball rolling'];
+
+  var currentQ = (function(){
+    // use highest quarter with bets
+    var qs = ['Q4','Q3','Q2','Q1'];
+    for(var i=0;i<qs.length;i++){ if(bets.some(function(b){ return b.quarter===qs[i]; })) return qs[i]; }
+    return 'Q1';
+  })();
+
+  var qBets = bets.filter(function(b){ return b.quarter===currentQ; });
+
+  // ── Team standings
+  var teams = ['NIO','FFS'];
+  var teamPL = {};
+  teams.forEach(function(t){
+    var members = IDIOTS.filter(function(n){ return getIdiotTeam(n)===t; });
+    teamPL[t] = parseFloat(members.reduce(function(s,n){
+      return s + effectivePL(n, bets.filter(function(b){ return b.idiot===n; }));
+    },0).toFixed(2));
+  });
+  if(teamPL['NIO'] > teamPL['FFS']) {
+    var gap = (teamPL['NIO']-teamPL['FFS']).toFixed(2);
+    msgs.push('🟢 NIO leading FFS by $'+gap+' — get it together FFS');
+  } else if(teamPL['FFS'] > teamPL['NIO']) {
+    var gap = (teamPL['FFS']-teamPL['NIO']).toFixed(2);
+    msgs.push('🔵 FFS ahead of NIO by $'+gap+' this season');
+  } else {
+    msgs.push('⚖️ NIO and FFS dead level — something has to give');
+  }
+
+  // ── No-bets per idiot this quarter
+  IDIOTS.forEach(function(name){
+    var noCount = qBets.filter(function(b){ return b.idiot===name&&b.nobet; }).length;
+    if(noCount>=4) msgs.push('😴 '+name+' — '+noCount+' no-bets in '+currentQ+', are you even trying mate?');
+    else if(noCount===3) msgs.push('🤔 '+name+' with '+noCount+' no-bets in '+currentQ+' — come on now');
+    else if(noCount>=2) msgs.push('👀 '+name+' already sitting out '+noCount+' weeks in '+currentQ);
+  });
+
+  // ── Current leader
+  var leaders = IDIOTS.map(function(n){
+    return { name:n, pl: effectivePL(n, bets.filter(function(b){ return b.idiot===n; })) };
+  }).sort(function(a,b){ return b.pl-a.pl; });
+  if(leaders[0].pl > 0)
+    msgs.push('🏆 '+leaders[0].name+' leading the pack at +$'+leaders[0].pl.toFixed(2)+' P/L');
+  if(leaders[leaders.length-1].pl < 0)
+    msgs.push('💸 '+leaders[leaders.length-1].name+' propping up the table at $'+leaders[leaders.length-1].pl.toFixed(2));
+
+  // ── Big wins
+  var bigWins = bets.filter(function(b){ return b.result==='Win'&&b.payout>=100&&!b.boar; })
+                    .sort(function(a,b){ return b.payout-a.payout; });
+  if(bigWins.length) {
+    var bw = bigWins[0];
+    msgs.push('💰 Biggest win: '+bw.idiot+' banked $'+bw.payout.toFixed(2)+' on '+bw.bet);
+  }
+
+  // ── Longest win streak this quarter
+  IDIOTS.forEach(function(name){
+    var qSettled = qBets.filter(function(b){ return b.idiot===name&&!b.nobet&&!b.boar&&b.result!=='Pending'; })
+                        .sort(function(a,b){ return a.week>b.week?1:-1; });
+    var streak=0, best=0;
+    qSettled.forEach(function(b){ if(b.result==='Win'){ streak++; best=Math.max(best,streak); } else streak=0; });
+    if(best>=3) msgs.push('🔥 '+name+' on a '+best+'-win streak in '+currentQ+' — hot hand!');
+  });
+
+  // ── Who hasn't bet yet this week
+  var allWeeks = bets.filter(function(b){ return !b.boar; }).map(function(b){ return b.week; }).sort();
+  var latestWeek = allWeeks[allWeeks.length-1];
+  if(latestWeek) {
+    var missing = IDIOTS.filter(function(n){
+      return !bets.some(function(b){ return b.idiot===n&&b.week===latestWeek; });
+    });
+    if(missing.length===1) msgs.push('⏰ '+missing[0]+' yet to enter for week of '+fmtDate(latestWeek));
+    else if(missing.length>=2&&missing.length<=4) msgs.push('⏰ '+missing.join(', ')+' — no entries yet this week');
+  }
+
+  // ── Most losses this quarter
+  IDIOTS.forEach(function(name){
+    var losses = qBets.filter(function(b){ return b.idiot===name&&b.result==='Loss'&&!b.boar; }).length;
+    if(losses>=5) msgs.push('😬 '+name+' with '+losses+' losses in '+currentQ+' — ouch');
+  });
+
+  // ── Joker used
+  var jokerWins = bets.filter(function(b){ return b.joker&&b.result==='Win'; });
+  if(jokerWins.length) {
+    var jw = jokerWins[jokerWins.length-1];
+    msgs.push('⭐ '+jw.idiot+' played the joker and WON — $'+jw.payout.toFixed(2)+' payout');
+  }
+  var jokerLosses = bets.filter(function(b){ return b.joker&&b.result==='Loss'; });
+  if(jokerLosses.length) {
+    var jl = jokerLosses[jokerLosses.length-1];
+    msgs.push('💀 '+jl.idiot+' burned the joker on a loss — that\'s gotta hurt');
+  }
+
+  // ── Pending this week
+  var pending = latestWeek ? bets.filter(function(b){ return b.week===latestWeek&&b.result==='Pending'&&!b.nobet; }) : [];
+  if(pending.length) msgs.push('⏳ '+pending.length+' bet'+(pending.length>1?'s':'')+' still pending this week — the suspense!');
+
+  // ── Futures bets outstanding
+  var openFutures = bets.filter(function(b){ return b.futures&&b.result==='Pending'; });
+  if(openFutures.length) msgs.push('📅 '+openFutures.length+' futures bet'+(openFutures.length>1?'s are':' is')+' still live — fingers crossed');
+
+  // ── Filler banter if we don't have much
+  var fillers = [
+    '🎲 Remember — it\'s not about the money, it\'s about the suffering',
+    '📊 The house always wins. Unless you\'re Wild Boar, then nobody wins',
+    '🍺 Every bet is a cry for help',
+    '🔔 Fines are due. You know who you are',
+    '🤡 Somewhere an idiot is placing a bad bet right now',
+  ];
+  fillers.forEach(function(f){ msgs.push(f); });
+
+  return msgs;
+}
+
+function renderTicker() {
+  var msgs = buildTickerMessages();
+  // Duplicate messages so scroll loops seamlessly
+  var all = msgs.concat(msgs);
+  var html = all.map(function(m){ return '<span class="ticker-msg">'+m+'</span>'; }).join('');
+  var track = document.getElementById('ticker-track');
+  if(track) {
+    track.innerHTML = html;
+    // Adjust animation speed based on message count (longer = slower)
+    var duration = Math.max(30, msgs.length * 7);
+    track.style.animationDuration = duration + 's';
+  }
+}
+
+function renderAll(){ renderBets(); renderWeekly(); renderLeaderboard(); renderFines(); renderPayments(); renderNameEditor(); renderTicker(); }
 
 // ─── WEEK SUMMARY ─────────────────────────────────
 function renderWeekSummary(week) {
@@ -1611,6 +2015,7 @@ function renderBets() {
     if(filterResult==='All') ro=true;
     else if(filterResult==='NoBet') ro=b.nobet===true;
     else if(filterResult==='Boar') ro=b.boar===true;
+    else if(filterResult==='Futures') ro=b.futures===true;
     else if(filterResult==='Pending') ro=!b.nobet&&b.result==='Pending'; // includes boar pending
     else ro=!b.nobet&&b.result===filterResult;
     return io&&ro;
@@ -1621,16 +2026,17 @@ function renderBets() {
   if(!filtered.length){ cardsEl.innerHTML='<div class="empty">No bets match</div>'; }
   else {
     cardsEl.innerHTML=filtered.map(function(b){
-      if(b.nobet) return '<div class="bet-card"><div class="bet-card-top"><span class="bet-card-name">'+b.idiot+'</span><span class="badge b-nobet">No bet</span><span style="color:var(--muted);font-size:11px;margin-left:auto">'+fmtDate(b.week)+'</span></div><div class="bet-card-row"><span style="color:var(--red)">$40 fine · −$30 P/L</span><button class="btn-danger-sm" style="margin-left:auto" onclick="askDelete('+b.id+')">🗑</button></div></div>';
+      if(b.nobet) return '<div class="bet-card"><div class="bet-card-top"><span class="bet-card-name">'+b.idiot+'</span><span class="badge b-nobet">No bet</span><span style="color:var(--muted);font-size:11px;margin-left:auto">'+fmtDate(b.week)+'</span></div><div class="bet-card-row"><span style="color:var(--red)">$40 fine · −$30 P/L</span><button class="btn-edit" style="margin-left:auto" onclick="openEditModal('+b.id+')">✏️</button><button class="btn-danger-sm" onclick="askDelete('+b.id+')">🗑</button></div></div>';
       var badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
       var plCol=b.pl>0?'var(--green)':b.pl<0?'var(--red)':'var(--muted)';
-      var boarBadge=b.boar?'<span class="badge b-boar">🐗</span>':'';
+      var boarBadge=b.boar?'<span class="badge b-boar">🐗</span>':b.futures?'<span class="badge b-futures">📅 Futures</span>':'';
       var impact=b.boar?(b.result==='Win'?'<span style="color:var(--teal)">−$'+b.pl.toFixed(2)+' fines</span>':b.result==='Loss'?'<span style="color:var(--red)">+$'+b.wager+' fines</span>':'<span style="color:var(--muted)">pending</span>'):null;
       return '<div class="bet-card">'
         +'<div class="bet-card-top"><span class="bet-card-name">'+b.idiot+(b.joker?'<span class="joker-tag">★</span>':'')+'</span>'+boarBadge+badge+'<span class="team-tag t-'+b.team.toLowerCase()+'">'+b.team+'</span><span style="color:var(--muted);font-size:11px;margin-left:auto">'+fmtDate(b.week)+' '+b.quarter+'</span></div>'
         +'<div class="bet-card-desc">'+b.bet+(b.result==='Win'&&b.payout>=100?' 💰':'')+'</div>'
         +'<div class="bet-card-row"><span>$'+b.wager+' @ '+b.odds+'×</span>'
         +'<select class="res-sel" onchange="updateResult('+b.id+',this.value)"><option '+(b.result==='Pending'?'selected':'')+'>Pending</option><option '+(b.result==='Win'?'selected':'')+'>Win</option><option '+(b.result==='Loss'?'selected':'')+'>Loss</option></select>'
+        +'<button class="btn-edit" onclick="openEditModal('+b.id+')">✏️</button>'
         +'<button class="btn-danger-sm" onclick="askDelete('+b.id+')">🗑</button>'
         +'<span class="bet-card-pl">'+(b.boar?impact:(b.result!=='Pending'?(b.pl>=0?'+':'')+'$'+Math.abs(b.pl).toFixed(2):'—'))+'</span></div></div>';
     }).join('');
@@ -1640,20 +2046,20 @@ function renderBets() {
   var tbody=document.getElementById('bets-tbody');
   if(!filtered.length){ tbody.innerHTML='<tr><td colspan="11" class="empty">No bets match</td></tr>'; return; }
   tbody.innerHTML=filtered.map(function(b){
-    if(b.nobet) return '<tr><td style="color:var(--muted);font-size:12px">'+fmtDate(b.week)+'</td><td style="color:var(--muted);font-size:11px">'+b.quarter+'</td><td style="font-weight:700">'+b.idiot+'</td><td colspan="6"><span class="badge b-nobet">No bet placed</span></td><td><span style="color:var(--red);font-size:12px;font-weight:700">$40·-$30</span></td><td><button class="btn-danger-sm" onclick="askDelete('+b.id+')">🗑</button></td></tr>';
+    if(b.nobet) return '<tr><td style="color:var(--muted);font-size:12px">'+fmtDate(b.week)+'</td><td style="color:var(--muted);font-size:11px">'+b.quarter+'</td><td style="font-weight:700">'+b.idiot+'</td><td colspan="6"><span class="badge b-nobet">No bet placed</span></td><td><span style="color:var(--red);font-size:12px;font-weight:700">$40·-$30</span></td><td style="white-space:nowrap"><button class="btn-edit" onclick="openEditModal('+b.id+')">✏️</button><button class="btn-danger-sm" onclick="askDelete('+b.id+')">🗑</button></td></tr>';
     var badge=b.result==='Win'?'<span class="badge b-win">Win</span>':b.result==='Loss'?'<span class="badge b-loss">Loss</span>':'<span class="badge b-pending">Pending</span>';
     var plCell=b.boar?(b.result==='Win'?'<span style="color:var(--teal)">−$'+b.pl.toFixed(2)+' fines</span>':b.result==='Loss'?'<span style="color:var(--red)">+$'+b.wager+' fines</span>':'<span style="color:var(--muted)">—</span>'):fmtPL(b.pl);
     return '<tr'+(b.boar?' style="background:rgba(45,212,191,0.03)"':'')+'>'
       +'<td style="color:var(--muted);font-size:12px;white-space:nowrap">'+fmtDate(b.week)+'</td>'
       +'<td style="color:var(--muted);font-size:11px">'+b.quarter+'</td>'
       +'<td style="font-weight:700">'+b.idiot+(b.joker?'<span class="joker-tag">★</span>':'')+'</td>'
-      +'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+b.bet+'">'+b.bet+(b.boar?'<span class="badge b-boar" style="margin-left:4px">🐗</span>':'')+(b.result==='Win'&&b.payout>=100?' 💰':'')+'</td>'
+      +'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+b.bet+'">'+b.bet+(b.boar?'<span class="badge b-boar" style="margin-left:4px">🐗</span>':b.futures?'<span class="badge b-futures" style="margin-left:4px">📅</span>':'')+(b.result==='Win'&&b.payout>=100?' 💰':'')+'</td>'
       +'<td><span class="team-tag t-'+b.team.toLowerCase()+'">'+b.team+'</span></td>'
       +'<td>$'+b.wager+'</td><td style="color:var(--muted)">'+b.odds+'×</td>'
       +'<td>$'+b.payout.toFixed(2)+'</td>'
       +'<td>'+plCell+'</td>'
       +'<td><select class="res-sel" onchange="updateResult('+b.id+',this.value)"><option '+(b.result==='Pending'?'selected':'')+'>Pending</option><option '+(b.result==='Win'?'selected':'')+'>Win</option><option '+(b.result==='Loss'?'selected':'')+'>Loss</option></select></td>'
-      +'<td><button class="btn-danger-sm" onclick="askDelete('+b.id+')">🗑</button></td></tr>';
+      +'<td style="white-space:nowrap"><button class="btn-edit" onclick="openEditModal('+b.id+')">✏️</button><button class="btn-danger-sm" onclick="askDelete('+b.id+')">🗑</button></td></tr>';
   }).join('');
 }
 
@@ -1956,19 +2362,43 @@ function renderFines() {
 
 // ─── PAYMENTS ─────────────────────────────────────
 function renderPayments() {
-  var fd=getFineData();
+  var isQFiltered = payQFilter !== 'all';
+
+  // When quarter-filtered: compute fines only for that quarter's bets
+  // Payments/meddled always shown as full totals (they're global)
+  var fd;
+  if(isQFiltered) {
+    // Temporarily scope bets to selected quarter for fine calculation
+    var savedBets = bets;
+    bets = bets.filter(function(b){ return b.quarter===payQFilter; });
+    fd = getFineData();
+    bets = savedBets;
+  } else {
+    fd = getFineData();
+  }
+
   // Balances
   var balances=IDIOTS.map(function(name){
     var gross=fd.rows.filter(function(r){ return r.idiot===name; }).reduce(function(s,r){ return s+r.totalFine; },0);
-    var boar=getBoarFineImpact(name);
+    var boar = isQFiltered
+      ? (function(){ // boar impact scoped to this quarter
+          var qb=bets.filter(function(b){ return b.boar===true&&b.idiot===name&&b.quarter===payQFilter&&b.result!=='Pending'; });
+          var imp=0; qb.forEach(function(b){ if(b.result==='Loss') imp+=b.wager; else if(b.result==='Win') imp-=b.pl; });
+          return parseFloat(imp.toFixed(2));
+        })()
+      : getBoarFineImpact(name);
     var paid=payments.filter(function(p){ return p.idiot===name&&(!p.type||p.type==='payment'); }).reduce(function(s,p){ return s+parseFloat(p.amount); },0);
     var meddled=payments.filter(function(p){ return p.idiot===name&&p.type==='meddle'; }).reduce(function(s,p){ return s+parseFloat(p.amount); },0);
-    var balance=getBalance(name);
+    // For quarter view: show fines owed for that quarter (don't subtract global payments — show separately)
+    var finesOwed = parseFloat((gross + boar).toFixed(2));
+    var balance = isQFiltered ? finesOwed : getBalance(name);
     var boarStr=boar!==0?'<span style="color:'+(boar>0?'var(--red)':'var(--teal)')+';font-size:11px;margin-left:4px">'+(boar>0?'+':'')+'$'+boar.toFixed(2)+' boar</span>':'';
-    var paidStr=paid>0?'<span style="color:var(--green);font-size:11px;margin-left:4px">−$'+paid.toFixed(2)+' paid</span>':'';
-    var meddleStr=meddled!==0?'<span style="color:var(--purple);font-size:11px;margin-left:4px">🔧'+(meddled>0?'+':'')+'$'+meddled.toFixed(2)+'</span>':'';
+    var paidStr=!isQFiltered&&paid>0?'<span style="color:var(--green);font-size:11px;margin-left:4px">−$'+paid.toFixed(2)+' paid</span>':'';
+    var meddleStr=!isQFiltered&&meddled!==0?'<span style="color:var(--purple);font-size:11px;margin-left:4px">🔧'+(meddled>0?'+':'')+'$'+meddled.toFixed(2)+'</span>':'';
     var balCol=balance>0?'var(--red)':balance<0?'var(--green)':'var(--muted)';
-    var balStr=balance>0?'Owes $'+balance.toFixed(2):balance<0?'Credit $'+Math.abs(balance).toFixed(2):'Settled ✓';
+    var balStr=isQFiltered
+      ? (balance>0?'Fines $'+balance.toFixed(2):balance===0?'No fines ✓':'Credit $'+Math.abs(balance).toFixed(2))
+      : (balance>0?'Owes $'+balance.toFixed(2):balance<0?'Credit $'+Math.abs(balance).toFixed(2):'Settled ✓');
     return {name:name,balance:balance,
       html:'<div style="display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">'
         +'<span style="font-weight:700;min-width:90px;font-size:14px">'+name+'</span>'
@@ -2113,6 +2543,7 @@ async function init(attempt) {
     loadingEl.innerHTML='<div style="color:var(--red);text-align:center;padding:24px;max-width:320px"><div style="font-size:36px;margin-bottom:12px">⚠</div><div style="font-weight:700;font-size:16px;margin-bottom:8px">Could not connect</div><div style="color:var(--muted);font-size:13px;margin-bottom:20px">'+e.message+'</div><button onclick="init(1)" style="background:var(--accent);color:#111;border:none;border-radius:8px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;width:100%">Try again</button></div>';
     return;
   }
+  setDefaultQuarter();
   buildWeekSelect();
   rebuildSelects(); // use DB-loaded names for all dropdowns
   renderAll();
